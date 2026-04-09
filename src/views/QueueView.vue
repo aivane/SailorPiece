@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { Clock, CheckCircle2, AlertCircle } from 'lucide-vue-next';
+import { Clock, CheckCircle2, AlertCircle, History } from 'lucide-vue-next';
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
@@ -37,6 +37,12 @@ const queueDetails = computed(() => {
     productName: q.product,
     submittedAt: q.time
   };
+});
+
+const userHistoryQueues = computed(() => {
+  if (!user.value) return [];
+  // Sort by latest first
+  return queues.value.filter(q => q.uid === user.value.uid && q.status !== 'waiting');
 });
 </script>
 
@@ -120,6 +126,39 @@ const queueDetails = computed(() => {
         <div class="flex justify-between items-center">
           <span class="text-slate-500">เวลาที่ส่งคำสั่งซื้อ:</span>
           <span class="font-medium text-slate-800">{{ queueDetails?.submittedAt }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- User History Section -->
+    <div v-if="userHistoryQueues.length > 0" class="w-full mt-8">
+      <div class="flex items-center gap-2 mb-4 px-2">
+         <History class="w-5 h-5 text-slate-500" />
+         <h2 class="text-lg font-bold text-slate-700">ประวัติการสั่งซื้อของคุณ</h2>
+      </div>
+      <div class="space-y-4">
+        <div v-for="q in userHistoryQueues" :key="q.id" class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-5 flex flex-col sm:flex-row justify-between gap-4 transition-colors hover:border-brand/30">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="font-bold text-slate-800 text-sm">#{{ q.id }}</span>
+              <span v-if="q.status === 'approved'" class="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">สำเร็จ</span>
+              <span v-else class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ถูกยกเลิก</span>
+            </div>
+            <div class="text-xs text-slate-600 space-y-1">
+               <template v-if="q.items && q.items.length > 0">
+                 <p v-for="(item, i) in q.items" :key="i">
+                    <span class="text-slate-400">-</span> {{ item.product.name }} <span class="text-brand font-medium">x{{ item.pieces }}</span>
+                 </p>
+               </template>
+               <template v-else>
+                 <p><span class="text-slate-400">-</span> {{ q.product }} <span v-if="q.receivedPieces" class="text-brand font-medium">x{{ q.receivedPieces }}</span></p>
+               </template>
+            </div>
+          </div>
+          <div class="flex flex-col sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+            <span class="font-bold text-slate-800">{{ q.price }} บาท</span>
+            <span class="text-xs text-slate-400 font-mono">{{ q.time }}</span>
+          </div>
         </div>
       </div>
     </div>

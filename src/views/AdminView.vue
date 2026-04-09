@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { Package, Users, Settings, Tag, Plus, Check, X, History } from 'lucide-vue-next';
 
 import { useShopStore } from '../stores/shop';
 import { storeToRefs } from 'pinia';
@@ -8,8 +8,11 @@ import { storeToRefs } from 'pinia';
 const shopStore = useShopStore();
 const { products, queues: currentQueues } = storeToRefs(shopStore);
 
-// View State: 'products' | 'queue'
+// View State: 'products' | 'queue' | 'history'
 const activeTab = ref('queue');
+
+const waitingQueues = computed(() => currentQueues.value.filter(q => q.status === 'waiting'));
+const historyQueues = computed(() => currentQueues.value.filter(q => q.status !== 'waiting'));
 
 const approveQueue = (id) => { shopStore.updateQueueStatus(id, 'approved'); };
 const rejectQueue = (id) => { shopStore.updateQueueStatus(id, 'rejected'); };
@@ -84,6 +87,12 @@ const deleteProduct = (id) => {
           <Users class="w-4 h-4" /> จัดการคิว
         </button>
         <button 
+          @click="activeTab = 'history'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <History class="w-4 h-4" /> ประวัติ
+        </button>
+        <button 
           @click="activeTab = 'products'"
           :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
@@ -94,11 +103,12 @@ const deleteProduct = (id) => {
 
     <!-- Queue Management Tab -->
     <div v-if="activeTab === 'queue'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="p-6 border-b border-slate-100">
+      <div class="p-6 border-b border-slate-100 flex justify-between items-center">
          <h2 class="text-lg font-semibold text-slate-800">รายการรอยืนยันสลิป</h2>
+         <span class="text-brand font-bold bg-brand/10 px-3 py-1 rounded-full text-sm">{{ waitingQueues.length }} รายการ</span>
       </div>
       <div class="divide-y divide-slate-100">
-        <div v-for="q in currentQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors">
+        <div v-for="q in waitingQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors">
           
           <!-- Slip Preview Box -->
           <div class="w-24 h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
@@ -145,8 +155,51 @@ const deleteProduct = (id) => {
              </button>
           </div>
         </div>
-        <div v-if="currentQueues.length === 0" class="p-8 text-center text-slate-500">
+        <div v-if="waitingQueues.length === 0" class="p-8 text-center text-slate-500">
           ไม่พบรายการคำสั่งซื้อใหม่
+        </div>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div v-if="activeTab === 'history'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+         <h2 class="text-lg font-semibold text-slate-800">ประวัติการทำรายการ</h2>
+      </div>
+      <div class="divide-y divide-slate-100">
+        <div v-for="q in historyQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors opacity-80 hover:opacity-100">
+          
+          <!-- Slip Preview Box -->
+          <div class="w-16 h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
+            <template v-if="q.slipImage">
+              <img :src="q.slipImage" class="w-full h-full object-cover grayscale mix-blend-multiply opacity-50" />
+              <div @click="viewSlip(q.slipImage)" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                <span class="text-xs text-white font-medium text-center">ดูสลิป<br>เต็ม</span>
+              </div>
+            </template>
+            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center leading-tight">ไม่มี<br>สลิป</div>
+          </div>
+          
+          <div class="flex-grow">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-slate-800">คิว #{{ q.id }} ({{ q.name }})</h3>
+              <span v-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
+              <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
+            </div>
+            <div class="mt-2 text-sm text-slate-600 line-clamp-2">
+               <template v-if="q.items && q.items.length > 0">
+                 {{ q.items.map(item => `${item.product.name} (x${item.pieces})`).join(', ') }}
+               </template>
+               <template v-else>
+                 {{ q.product }} (x{{ q.receivedPieces || 0 }})
+               </template>
+            </div>
+            <p class="text-sm font-bold text-slate-800 pt-1 border-t border-slate-100/50 w-max mt-2">ยอดโอนรวม: {{ q.price }} บาท</p>
+            <p class="text-xs text-slate-400 mt-2 font-mono">เวลาอัปโหลด: {{ q.time }}</p>
+          </div>
+        </div>
+        <div v-if="historyQueues.length === 0" class="p-8 text-center text-slate-500">
+          ยังไม่มีประวัติการทำรายการ
         </div>
       </div>
     </div>
