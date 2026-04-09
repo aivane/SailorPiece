@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { ShoppingCart, UploadCloud, X } from 'lucide-vue-next';
+import { ShoppingCart, UploadCloud, X, Search } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useShopStore } from '../stores/shop';
@@ -12,6 +12,30 @@ const shopStore = useShopStore();
 const authStore = useAuthStore();
 const { products } = storeToRefs(shopStore);
 const { user } = storeToRefs(authStore);
+
+const categories = ['ทั้งหมด', 'Reroll', 'Melee', 'Sword', 'Crate', 'Summon'];
+const activeCategory = ref('ทั้งหมด');
+const searchQuery = ref('');
+
+const filteredProducts = computed(() => {
+  let result = products.value;
+  
+  // 1. Filter by category
+  if (activeCategory.value !== 'ทั้งหมด') {
+    result = result.filter(p => (p.category || 'Reroll').toLowerCase() === activeCategory.value.toLowerCase());
+  }
+  
+  // 2. Filter by search query
+  if (searchQuery.value.trim() !== '') {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      p.description.toLowerCase().includes(q)
+    );
+  }
+  
+  return result;
+});
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('th-TH').format(price);
@@ -99,14 +123,39 @@ const submitOrder = async () => {
 
 <template>
   <div class="space-y-6">
-    <div class="text-center sm:text-left">
-      <h1 class="text-3xl font-bold text-brand-dark">สินค้าทั้งหมด</h1>
-      <p class="text-slate-500 mt-2">เลือกซื้อสินค้าและแนบสลิปเพื่อเข้าสู่ระบบคิว</p>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+      <div class="text-center sm:text-left">
+        <h1 class="text-3xl font-bold text-brand-dark">สินค้าทั้งหมด</h1>
+        <p class="text-slate-500 mt-2">เลือกซื้อสินค้าและแนบสลิปเพื่อเข้าสู่ระบบคิว</p>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="relative w-full sm:w-72 flex-shrink-0">
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="ค้นหาสินค้า..." 
+          class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm bg-white"
+        />
+        <Search class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      </div>
+    </div>
+
+    <!-- Category Filter -->
+    <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <button 
+        v-for="cat in categories" :key="cat"
+        @click="activeCategory = cat"
+        class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors border"
+        :class="activeCategory === cat ? 'bg-brand text-white border-brand shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-brand hover:text-brand'"
+      >
+        {{ cat }}
+      </button>
     </div>
 
     <!-- Product Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="product in products" :key="product.id" class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 flex flex-col group">
+      <div v-for="product in filteredProducts" :key="product.id" class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 flex flex-col group">
         <div class="aspect-square w-full bg-slate-50 rounded-xl mb-4 overflow-hidden relative">
           <img :src="product.image" :alt="product.name" class="w-full h-full object-cover transition-transform group-hover:scale-105" />
           <div v-if="product.status === 'out-of-stock'" class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px]">

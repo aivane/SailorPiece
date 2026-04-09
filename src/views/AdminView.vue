@@ -26,7 +26,7 @@ const closeSlip = () => { viewingSlipUrl.value = null; };
 
 const openAddModal = () => {
   editingProductId.value = null;
-  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed' };
+  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll' };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
@@ -154,6 +154,7 @@ const deleteProduct = (id) => {
           <thead>
             <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
               <th class="px-4 py-3 font-medium">ชื่อสินค้า</th>
+              <th class="px-4 py-3 font-medium">หมวดหมู่</th>
               <th class="px-4 py-3 font-medium">รูปแบบการขาย</th>
               <th class="px-4 py-3 font-medium">ราคา / เรต</th>
               <th class="px-4 py-3 font-medium">จำนวนที่มีโค้ด/สต๊อก</th>
@@ -163,6 +164,9 @@ const deleteProduct = (id) => {
           <tbody class="divide-y divide-slate-100">
             <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50/50 transition-colors">
               <td class="px-4 py-3 font-medium text-slate-800">{{ p.name }}</td>
+              <td class="px-4 py-3 text-slate-500">
+                <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">{{ p.category || 'Reroll' }}</span>
+              </td>
               <td class="px-4 py-3 text-slate-500 text-xs">
                 <span v-if="p.pricingType === 'rate'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">อิงเรต</span>
                 <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md">ฟิกราคา</span>
@@ -193,9 +197,21 @@ const deleteProduct = (id) => {
           </button>
         </div>
         <div class="p-6 overflow-y-auto space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อสินค้า</label>
-            <input v-model="productForm.name" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+          <div class="flex gap-4 flex-col sm:flex-row">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อสินค้า</label>
+              <input v-model="productForm.name" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+            </div>
+            <div class="w-full sm:w-1/3 flex-shrink-0">
+              <label class="block text-sm font-medium text-slate-700 mb-1">หมวดหมู่</label>
+              <select v-model="productForm.category" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none bg-white">
+                <option value="Reroll">Reroll</option>
+                <option value="Melee">Melee</option>
+                <option value="Sword">Sword</option>
+                <option value="Crate">Crate</option>
+                <option value="Summon">Summon</option>
+              </select>
+            </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">รายละเอียด</label>
