@@ -76,16 +76,16 @@ const deleteProduct = (id) => {
       </div>
 
       <!-- Tab Buttons -->
-      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100">
+      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100 w-full sm:w-auto">
         <button 
           @click="activeTab = 'queue'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Users class="w-4 h-4" /> จัดการคิว
         </button>
         <button 
           @click="activeTab = 'products'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Package class="w-4 h-4" /> จัดการสินค้า
         </button>
@@ -125,7 +125,7 @@ const deleteProduct = (id) => {
             <p class="text-xs text-slate-400 mt-2 font-mono">เวลาอัปโหลด: {{ q.time }}</p>
           </div>
 
-          <div v-if="q.status === 'waiting'" class="flex items-center gap-2 w-full sm:w-auto">
+          <div v-if="q.status === 'waiting'" class="flex items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-slate-100">
              <button @click="approveQueue(q.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-green-50 hover:bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
                <Check class="w-4 h-4" /> ยืนยันสลิป
              </button>
@@ -214,7 +214,7 @@ const deleteProduct = (id) => {
               </label>
             </div>
           </div>
-          <div class="flex gap-4">
+          <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
               <label class="block text-sm font-medium text-slate-700 mb-1">
                 {{ productForm.pricingType === 'rate' ? 'เรต (ชิ้น ต่อ 1 บาท)' : 'ราคา (บาท ต่อ 1 ชิ้น)' }}

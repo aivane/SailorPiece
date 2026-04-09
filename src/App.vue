@@ -1,6 +1,6 @@
 <script setup>
 import { RouterView, RouterLink } from 'vue-router'
-import { ShoppingBag, LayoutDashboard, Store, LogOut } from 'lucide-vue-next'
+import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { storeToRefs } from 'pinia'
 
@@ -20,14 +20,17 @@ const { user, isAdmin, loading } = storeToRefs(authStore)
             </RouterLink>
           </div>
           <div class="flex items-center space-x-2 sm:space-x-4">
-            <RouterLink to="/" class="text-slate-500 hover:text-brand-dark px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 transition-colors">
-              <ShoppingBag class="w-4 h-4 hidden sm:block" /> Shop
+            <RouterLink to="/" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
+              <ShoppingBag class="w-5 h-5 sm:w-4 sm:h-4" /> 
+              <span class="hidden sm:inline">Shop</span>
             </RouterLink>
-            <RouterLink to="/queue" class="text-slate-500 hover:text-brand-dark px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 transition-colors">
-               คิวของฉัน
+            <RouterLink to="/queue" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
+               <ClipboardList class="w-5 h-5 sm:w-4 sm:h-4" /> 
+               <span class="hidden sm:inline">คิวของฉัน</span>
             </RouterLink>
-            <RouterLink v-if="isAdmin" to="/admin" class="text-slate-500 hover:text-brand-dark px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 transition-colors">
-              <LayoutDashboard class="w-4 h-4 hidden sm:block" /> Admin
+            <RouterLink v-if="isAdmin" to="/admin" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
+              <LayoutDashboard class="w-5 h-5 sm:w-4 sm:h-4" /> 
+              <span class="hidden sm:inline">Admin</span>
             </RouterLink>
             
             <div class="h-6 w-px bg-slate-200 mx-2"></div>
@@ -42,9 +45,9 @@ const { user, isAdmin, loading } = storeToRefs(authStore)
                 <LogOut class="w-5 h-5" />
               </button>
             </div>
-            <button v-else @click="authStore.loginWithGoogle" class="flex items-center gap-2 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+            <button v-else @click="authStore.loginWithGoogle" class="flex items-center gap-2 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
               <img src="https://www.google.com/favicon.ico" class="w-4 h-4" />
-              เข้าสู่ระบบ
+              <span class="hidden sm:inline">เข้าสู่ระบบ</span>
             </button>
           </div>
         </div>
