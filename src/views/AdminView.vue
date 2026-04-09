@@ -123,7 +123,7 @@ const deleteProduct = (id) => {
           
           <div class="flex-grow">
             <div class="flex items-center gap-2">
-              <h3 class="font-bold text-slate-800">แอดมินตรวจคิว #{{ q.id }} ({{ q.name }})</h3>
+              <h3 class="font-bold text-slate-800">แอดมินตรวจคิว #{{ q.queueNumber || q.id }} ({{ q.name }})</h3>
               <span v-if="q.status === 'waiting'" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wider">รอยืนยัน</span>
               <span v-else-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
               <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
@@ -182,7 +182,7 @@ const deleteProduct = (id) => {
           
           <div class="flex-grow">
             <div class="flex items-center gap-2">
-              <h3 class="font-bold text-slate-800">คิว #{{ q.id }} ({{ q.name }})</h3>
+              <h3 class="font-bold text-slate-800">คิว #{{ q.queueNumber || q.id }} ({{ q.name }})</h3>
               <span v-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
               <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
             </div>

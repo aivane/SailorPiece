@@ -142,10 +142,19 @@ export const useShopStore = defineStore('shop', () => {
 
       const qDocRef = doc(collection(db, 'queues'));
       
+      let maxQueueNumber = 0;
+      for (const q of queues.value) {
+         if (q.queueNumber && q.queueNumber > maxQueueNumber) {
+            maxQueueNumber = q.queueNumber;
+         }
+      }
+      const newQueueNumber = maxQueueNumber + 1;
+      
       // Store both legacy formatting and new multiple-items logic
       await setDoc(qDocRef, {
         name: queueData.name,
         uid: queueData.uid || null, // Track user who bought it
+        queueNumber: newQueueNumber,
         // Fallback for single-item backwards compatibility (mostly for old code references if any remain)
         product: queueData.items?.[0]?.product?.name || queueData.product || 'หลายรายการ', 
         receivedPieces: queueData.items?.[0]?.pieces || queueData.receivedPieces || 0,

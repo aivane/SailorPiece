@@ -121,7 +121,7 @@ const userHistoryQueues = computed(() => {
 
         <div class="flex justify-between items-center pt-1">
           <span class="text-slate-500">หมายเลขคิว (สแกนอ้างอิง):</span>
-          <span class="font-bold text-slate-400 font-mono text-xs">#{{ queueDetails?.id }}</span>
+          <span class="font-bold text-slate-400 font-mono text-xs">#{{ queueDetails?.queueNumber || queueDetails?.id }}</span>
         </div>
         <div class="flex justify-between items-center">
           <span class="text-slate-500">เวลาที่ส่งคำสั่งซื้อ:</span>
@@ -140,7 +140,7 @@ const userHistoryQueues = computed(() => {
         <div v-for="q in userHistoryQueues" :key="q.id" class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-5 flex flex-col sm:flex-row justify-between gap-4 transition-colors hover:border-brand/30">
           <div>
             <div class="flex items-center gap-2 mb-2">
-              <span class="font-bold text-slate-800 text-sm">#{{ q.id }}</span>
+              <span class="font-bold text-slate-800 text-sm">#{{ q.queueNumber || q.id }}</span>
               <span v-if="q.status === 'approved'" class="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">สำเร็จ</span>
               <span v-else class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ถูกยกเลิก</span>
             </div>
