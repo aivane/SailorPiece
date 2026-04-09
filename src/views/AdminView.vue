@@ -20,6 +20,10 @@ const productForm = ref({ name: '', description: '', price: 0, quantity: 1, imag
 const imageRawFile = ref(null);
 const isSubmitting = ref(false);
 
+const viewingSlipUrl = ref(null);
+const viewSlip = (url) => { viewingSlipUrl.value = url; };
+const closeSlip = () => { viewingSlipUrl.value = null; };
+
 const openAddModal = () => {
   editingProductId.value = null;
   productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed' };
@@ -100,7 +104,7 @@ const deleteProduct = (id) => {
           <div class="w-24 h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
             <template v-if="q.slipImage">
               <img :src="q.slipImage" class="w-full h-full object-cover grayscale mix-blend-multiply opacity-50" />
-              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+              <div @click="viewSlip(q.slipImage)" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
                 <span class="text-xs text-white font-medium">ดูสลิปเต็ม</span>
               </div>
             </template>
@@ -241,6 +245,17 @@ const deleteProduct = (id) => {
              {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึก' }}
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Slip Viewer Modal -->
+    <div v-if="viewingSlipUrl" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="closeSlip"></div>
+      <div class="relative z-10 max-w-2xl max-h-[90vh] bg-transparent flex flex-col items-center">
+        <button @click="closeSlip" class="absolute -top-12 right-0 text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full transition-colors">
+          <X class="w-6 h-6" />
+        </button>
+        <img :src="viewingSlipUrl" class="w-auto h-auto max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain border-2 border-white/10" />
       </div>
     </div>
   </div>

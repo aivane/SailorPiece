@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { db, storage } from '../firebase/config';
+import { db } from '../firebase/config';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const useShopStore = defineStore('shop', () => {
   const products = ref([]);
@@ -20,14 +19,44 @@ export const useShopStore = defineStore('shop', () => {
     });
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+             const canvas = document.createElement('canvas');
+             const MAX_WIDTH = 800; // Resize to ensure it fits in Firestore 1MB limits
+             let width = img.width;
+             let height = img.height;
+             
+             if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+             }
+             
+             canvas.width = width;
+             canvas.height = height;
+             const ctx = canvas.getContext('2d');
+             ctx.drawImage(img, 0, 0, width, height);
+             // Convert to compressed WebP (takes very little space)
+             const dataUrl = canvas.toDataURL('image/webp', 0.6);
+             resolve(dataUrl);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const uploadImage = async (file, path) => {
     if (!file) return null;
     try {
-      const sRef = storageRef(storage, `${path}/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(sRef, file);
-      return await getDownloadURL(snapshot.ref);
+      // Instead of relying on Firebase Storage (which requires paid plans in some regions),
+      // we compress the image into a lightweight string and store it directly in Firestore database!
+      return await compressImage(file);
     } catch (e) {
-      console.error('Upload Error:', e);
+      console.error('Image processing error:', e);
       return null;
     }
   };
