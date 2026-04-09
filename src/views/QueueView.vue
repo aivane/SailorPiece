@@ -3,20 +3,32 @@ import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-vue-next';
 import { useShopStore } from '../stores/shop';
+import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
 
 const route = useRoute();
 const shopStore = useShopStore();
+const authStore = useAuthStore();
 const { queues } = storeToRefs(shopStore);
+const { user } = storeToRefs(authStore);
 const queueId = ref(route.params.id || null);
 
+const activeQueueId = computed(() => {
+  if (queueId.value) return queueId.value;
+  if (user.value) {
+     const myQueue = queues.value.find(q => q.uid === user.value.uid && (q.status === 'waiting' || q.status === 'approved'));
+     if (myQueue) return myQueue.id;
+  }
+  return null;
+});
+
 const queueDetails = computed(() => {
-  if (!queueId.value) return null;
-  const q = queues.value.find(item => item.id === queueId.value);
+  if (!activeQueueId.value) return null;
+  const q = queues.value.find(item => item.id === activeQueueId.value);
   if (!q) return null;
 
   const waitingQs = queues.value.filter(item => item.status === 'waiting');
-  const positionIndex = waitingQs.findIndex(item => item.id === queueId.value);
+  const positionIndex = waitingQs.findIndex(item => item.id === activeQueueId.value);
   
   return {
     ...q,
@@ -36,7 +48,7 @@ const queueDetails = computed(() => {
     </div>
 
     <!-- No Queue ID Case -->
-    <div v-if="!queueId" class="w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
+    <div v-if="!activeQueueId" class="w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
       <div class="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4 text-brand">
         <Clock class="w-8 h-8" />
       </div>

@@ -64,8 +64,8 @@ export const useShopStore = defineStore('shop', () => {
              canvas.height = height;
              const ctx = canvas.getContext('2d');
              ctx.drawImage(img, 0, 0, width, height);
-             // Convert to compressed WebP (takes very little space)
-             const dataUrl = canvas.toDataURL('image/webp', 0.6);
+             // Use JPEG as it has better widespread mobile support than WebP
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
              resolve(dataUrl);
         };
         img.src = e.target.result;
@@ -145,6 +145,7 @@ export const useShopStore = defineStore('shop', () => {
       // Store both legacy formatting and new multiple-items logic
       await setDoc(qDocRef, {
         name: queueData.name,
+        uid: queueData.uid || null, // Track user who bought it
         // Fallback for single-item backwards compatibility (mostly for old code references if any remain)
         product: queueData.items?.[0]?.product?.name || queueData.product || 'หลายรายการ', 
         receivedPieces: queueData.items?.[0]?.pieces || queueData.receivedPieces || 0,

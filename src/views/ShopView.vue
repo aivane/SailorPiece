@@ -150,6 +150,7 @@ const submitOrder = async () => {
   
   const mockQueueId = await shopStore.addQueue({
     name: robloxName.value,
+    uid: user.value ? user.value.uid : null,
     price: cartTotalBaht.value,
     items: cart.value.map(item => ({ product: item.product, pieces: item.pieces, price: item.baht }))
   }, slipRawFile.value);

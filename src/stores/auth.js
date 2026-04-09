@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { auth, googleProvider } from '../firebase/config';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import router from '../router';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
@@ -30,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = async () => {
     try {
       await signOut(auth);
+      router.push('/');
     } catch (error) {
       console.error('Logout Failed:', error);
     }
