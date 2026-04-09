@@ -21,21 +21,21 @@ const selectedProduct = ref(null);
 const isModalOpen = ref(false);
 const slipImage = ref(null);
 const slipRawFile = ref(null);
-const customerName = ref('');
-const customerPhone = ref('');
-const purchaseValue = ref('');
+const robloxName = ref('');
+const purchaseQuantity = ref('');
 const isSubmitting = ref(false);
 
 const calculatedPieces = computed(() => {
-  const val = Number(purchaseValue.value) || 0;
-  if (!selectedProduct.value) return 0;
-  return selectedProduct.value.pricingType === 'rate' ? val * selectedProduct.value.price : val;
+  return Number(purchaseQuantity.value) || 0;
 });
 
 const calculatedBaht = computed(() => {
-  const val = Number(purchaseValue.value) || 0;
+  const pieces = Number(purchaseQuantity.value) || 0;
   if (!selectedProduct.value) return 0;
-  return selectedProduct.value.pricingType === 'rate' ? val : val * selectedProduct.value.price;
+  if (selectedProduct.value.pricingType === 'rate') {
+    return pieces / selectedProduct.value.price;
+  }
+  return pieces * selectedProduct.value.price;
 });
 
 const openCheckout = (product) => {
@@ -45,7 +45,7 @@ const openCheckout = (product) => {
     return;
   }
   selectedProduct.value = product;
-  customerName.value = user.value.displayName || '';
+  robloxName.value = ''; // They need to type their roblox name manually
   isModalOpen.value = true;
 };
 
@@ -54,9 +54,8 @@ const closeCheckout = () => {
   selectedProduct.value = null;
   slipImage.value = null;
   slipRawFile.value = null;
-  customerName.value = '';
-  customerPhone.value = '';
-  purchaseValue.value = '';
+  robloxName.value = '';
+  purchaseQuantity.value = '';
   isSubmitting.value = false;
 };
 
@@ -69,8 +68,8 @@ const handleSlipUpload = (event) => {
 };
 
 const submitOrder = async () => {
-  const amount = Number(purchaseValue.value) || 0;
-  if (!customerName.value || !slipRawFile.value || amount <= 0) {
+  const amount = Number(purchaseQuantity.value) || 0;
+  if (!robloxName.value || !slipRawFile.value || amount <= 0) {
     alert('กรุณากรอกข้อมูลให้ครบถ้วนและแนบสลิปการโอนเงิน (จำนวนต้องมากกว่า 0)');
     return;
   }
@@ -82,7 +81,7 @@ const submitOrder = async () => {
   isSubmitting.value = true;
   
   const mockQueueId = await shopStore.addQueue({
-    name: customerName.value,
+    name: robloxName.value,
     product: selectedProduct.value.name,
     price: calculatedBaht.value,
     receivedPieces: calculatedPieces.value
@@ -162,17 +161,13 @@ const submitOrder = async () => {
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">
-                {{ selectedProduct?.pricingType === 'rate' ? 'จำนวนเงินที่ต้องการเติม (บาท)' : 'จำนวนชิ้นที่ต้องการสั่งซื้อ' }}
+                จำนวนที่ต้องการสั่งซื้อ (ชิ้น)
                 <span class="text-red-500">*</span>
               </label>
-              <input v-model.number="purchaseValue" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm font-medium" :placeholder="selectedProduct?.pricingType === 'rate' ? 'เช่น 10' : 'เช่น 1'" />
+              <input v-model.number="purchaseQuantity" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm font-medium" placeholder="ระบุจำนวนชิ้น" />
               
-              <div v-if="purchaseValue > 0" class="mt-2 bg-brand/10 p-3 rounded-xl border border-brand/20">
-                <p v-if="selectedProduct?.pricingType === 'rate'" class="text-brand-dark font-medium text-sm flex justify-between">
-                  <span>สิ่งที่คุณจะได้รับ:</span>
-                  <span class="text-brand font-bold">{{ formatPrice(calculatedPieces) }} ชิ้น</span>
-                </p>
-                <p v-else class="text-brand-dark font-medium text-sm flex justify-between">
+              <div v-if="purchaseQuantity > 0" class="mt-2 bg-brand/10 p-3 rounded-xl border border-brand/20">
+                <p class="text-brand-dark font-medium text-sm flex justify-between">
                   <span>ยอดรวมที่ต้องโอน:</span>
                   <span class="text-brand font-bold">{{ formatPrice(calculatedBaht) }} บาท</span>
                 </p>
@@ -181,8 +176,8 @@ const submitOrder = async () => {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
-              <input v-model="customerName" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm" placeholder="กรอกชื่อของคุณ" />
+              <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อภายในเกม Roblox <span class="text-red-500">*</span></label>
+              <input v-model="robloxName" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm" placeholder="กรอกชื่อ Roblox ของคุณ" />
             </div>
 
             <!-- Payment Info Mock -->
