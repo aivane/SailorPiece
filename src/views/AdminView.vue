@@ -1,0 +1,247 @@
+<script setup>
+import { ref } from 'vue';
+import { Package, Users, Settings, Tag, Plus, Check, X } from 'lucide-vue-next';
+
+import { useShopStore } from '../stores/shop';
+import { storeToRefs } from 'pinia';
+
+const shopStore = useShopStore();
+const { products, queues: currentQueues } = storeToRefs(shopStore);
+
+// View State: 'products' | 'queue'
+const activeTab = ref('queue');
+
+const approveQueue = (id) => { shopStore.updateQueueStatus(id, 'approved'); };
+const rejectQueue = (id) => { shopStore.updateQueueStatus(id, 'rejected'); };
+
+const isModalOpen = ref(false);
+const editingProductId = ref(null);
+const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed' });
+const imageRawFile = ref(null);
+const isSubmitting = ref(false);
+
+const openAddModal = () => {
+  editingProductId.value = null;
+  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed' };
+  imageRawFile.value = null;
+  isModalOpen.value = true;
+};
+
+const openEditModal = (product) => {
+  editingProductId.value = product.id;
+  productForm.value = { ...product };
+  imageRawFile.value = null;
+  isModalOpen.value = true;
+};
+
+const handleImageUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    imageRawFile.value = file;
+    productForm.value.image = URL.createObjectURL(file);
+  }
+};
+
+const saveProduct = async () => {
+  isSubmitting.value = true;
+  if(editingProductId.value) {
+    await shopStore.updateProduct(editingProductId.value, productForm.value, imageRawFile.value);
+  } else {
+    await shopStore.addProduct(productForm.value, imageRawFile.value);
+  }
+  isSubmitting.value = false;
+  isModalOpen.value = false;
+};
+
+const deleteProduct = (id) => {
+  if (confirm('คุณต้องการลบสินค้านี้ใช่หรือไม่?')) {
+    shopStore.deleteProduct(id);
+  }
+};
+</script>
+
+<template>
+  <div class="space-y-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-brand-dark flex items-center gap-2">
+          <Settings class="w-8 h-8 text-brand" /> 
+          Admin Dashboard
+        </h1>
+        <p class="text-slate-500 mt-2">จัดการสินค้าและตรวจสอบสลิป</p>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100">
+        <button 
+          @click="activeTab = 'queue'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <Users class="w-4 h-4" /> จัดการคิว
+        </button>
+        <button 
+          @click="activeTab = 'products'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <Package class="w-4 h-4" /> จัดการสินค้า
+        </button>
+      </div>
+    </div>
+
+    <!-- Queue Management Tab -->
+    <div v-if="activeTab === 'queue'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+         <h2 class="text-lg font-semibold text-slate-800">รายการรอยืนยันสลิป</h2>
+      </div>
+      <div class="divide-y divide-slate-100">
+        <div v-for="q in currentQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors">
+          
+          <!-- Slip Preview Box -->
+          <div class="w-24 h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
+            <template v-if="q.slipImage">
+              <img :src="q.slipImage" class="w-full h-full object-cover grayscale mix-blend-multiply opacity-50" />
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                <span class="text-xs text-white font-medium">ดูสลิปเต็ม</span>
+              </div>
+            </template>
+            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs">ไม่มีรูปสลิป</div>
+          </div>
+          
+          <div class="flex-grow">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-slate-800">แอดมินตรวจคิว #{{ q.id }} ({{ q.name }})</h3>
+              <span v-if="q.status === 'waiting'" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wider">รอยืนยัน</span>
+              <span v-else-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
+              <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">
+              {{ q.product }} • ยอดโอน {{ q.price }} บาท 
+              <span v-if="q.receivedPieces !== undefined" class="text-brand font-medium">(จะได้รับ {{ q.receivedPieces.toLocaleString('th-TH') }} ชิ้น)</span>
+            </p>
+            <p class="text-xs text-slate-400 mt-2 font-mono">เวลาอัปโหลด: {{ q.time }}</p>
+          </div>
+
+          <div v-if="q.status === 'waiting'" class="flex items-center gap-2 w-full sm:w-auto">
+             <button @click="approveQueue(q.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-green-50 hover:bg-green-100 text-green-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+               <Check class="w-4 h-4" /> ยืนยันสลิป
+             </button>
+             <button @click="rejectQueue(q.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+               <X class="w-4 h-4" /> ปฏิเสธ
+             </button>
+          </div>
+        </div>
+        <div v-if="currentQueues.length === 0" class="p-8 text-center text-slate-500">
+          ไม่พบรายการคำสั่งซื้อใหม่
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Management Tab -->
+    <div v-if="activeTab === 'products'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลสินค้าในร้าน</h2>
+        <button @click="openAddModal" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm">
+          <Plus class="w-4 h-4" /> เพิ่มสินค้าใหม่
+        </button>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-slate-100">
+        <table class="w-full text-left text-sm whitespace-nowrap">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
+              <th class="px-4 py-3 font-medium">ชื่อสินค้า</th>
+              <th class="px-4 py-3 font-medium">รูปแบบการขาย</th>
+              <th class="px-4 py-3 font-medium">ราคา / เรต</th>
+              <th class="px-4 py-3 font-medium">จำนวนที่มีโค้ด/สต๊อก</th>
+              <th class="px-4 py-3 font-medium text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50/50 transition-colors">
+              <td class="px-4 py-3 font-medium text-slate-800">{{ p.name }}</td>
+              <td class="px-4 py-3 text-slate-500 text-xs">
+                <span v-if="p.pricingType === 'rate'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">อิงเรต</span>
+                <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md">ฟิกราคา</span>
+              </td>
+              <td class="px-4 py-3 text-slate-600">
+                <span v-if="p.pricingType === 'rate'" class="text-brand font-medium">เรต {{ p.price }} ชิ้น/บาท</span>
+                <span v-else>{{ p.price }} บาท/ชิ้น</span>
+              </td>
+              <td class="px-4 py-3 text-slate-600">{{ p.quantity }}</td>
+              <td class="px-4 py-3 text-right space-x-3">
+                <button @click="openEditModal(p)" class="text-brand hover:text-brand-dark font-medium transition-colors">แก้ไข</button>
+                <button @click="deleteProduct(p.id)" class="text-red-500 hover:text-red-700 font-medium transition-colors">ลบ</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isModalOpen = false"></div>
+      <div class="bg-white rounded-2xl w-full max-w-md relative z-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h2 class="text-lg font-semibold text-brand-dark">{{ editingProductId ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่' }}</h2>
+          <button @click="isModalOpen = false" class="text-slate-400 hover:text-slate-600 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อสินค้า</label>
+            <input v-model="productForm.name" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">รายละเอียด</label>
+            <textarea v-model="productForm.description" rows="3" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">รูปแบบการขาย</label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 text-sm cursor-pointer p-2 border border-slate-200 rounded-lg shrink-0 flex-1 justify-center transition-colors hover:bg-slate-50" :class="{'ring-2 ring-brand border-brand bg-brand-light/20': productForm.pricingType === 'fixed'}">
+                <input type="radio" value="fixed" v-model="productForm.pricingType" class="hidden" /> 
+                <Package class="w-4 h-4 text-slate-500" :class="{'text-brand': productForm.pricingType === 'fixed'}" /> ขายราคาฟิก (บาท/ชิ้น)
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer p-2 border border-slate-200 rounded-lg shrink-0 flex-1 justify-center transition-colors hover:bg-slate-50" :class="{'ring-2 ring-brand border-brand bg-brand-light/20': productForm.pricingType === 'rate'}">
+                <input type="radio" value="rate" v-model="productForm.pricingType" class="hidden" /> 
+                <Tag class="w-4 h-4 text-slate-500" :class="{'text-brand': productForm.pricingType === 'rate'}" /> ขายตามเรต (ชิ้น/บาท)
+              </label>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-700 mb-1">
+                {{ productForm.pricingType === 'rate' ? 'เรต (ชิ้น ต่อ 1 บาท)' : 'ราคา (บาท ต่อ 1 ชิ้น)' }}
+              </label>
+              <input v-model.number="productForm.price" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+            </div>
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-700 mb-1">จำนวนสต๊อก</label>
+              <input v-model.number="productForm.quantity" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-slate-700">รูปภาพสินค้า</label>
+            <div class="flex items-center gap-4">
+              <div v-if="productForm.image" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                <img :src="productForm.image" class="w-full h-full object-cover" />
+              </div>
+              <div class="flex-grow">
+                <input type="file" accept="image/*" @change="handleImageUpload" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-light file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer outline-none" />
+                <p class="text-xs text-slate-400 mt-1">สามารถอัปโหลดรูปจากเครื่องของคุณได้เลย</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button @click="isModalOpen = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">ยกเลิก</button>
+          <button @click="saveProduct" :disabled="isSubmitting" class="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+             {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึก' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
