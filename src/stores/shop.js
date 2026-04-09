@@ -1,11 +1,34 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 export const useShopStore = defineStore('shop', () => {
   const products = ref([]);
   const queues = ref([]);
+  const cart = ref([]);
+
+  const cartTotalBaht = computed(() => {
+    return cart.value.reduce((sum, item) => sum + item.baht, 0);
+  });
+
+  const addToCart = (product, pieces, baht) => {
+    const existingIndex = cart.value.findIndex(item => item.product.id === product.id);
+    if (existingIndex !== -1) {
+       cart.value[existingIndex].pieces += pieces;
+       cart.value[existingIndex].baht += baht;
+    } else {
+       cart.value.push({ product, pieces, baht });
+    }
+  };
+
+  const removeFromCart = (index) => {
+    cart.value.splice(index, 1);
+  };
+
+  const clearCart = () => {
+    cart.value = [];
+  };
 
   const initShop = () => {
     // Listen to products
@@ -22,8 +45,10 @@ export const useShopStore = defineStore('shop', () => {
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
+      reader.onerror = () => resolve(null);
       reader.onload = (e) => {
         const img = new Image();
+        img.onerror = () => resolve(null);
         img.onload = () => {
              const canvas = document.createElement('canvas');
              const MAX_WIDTH = 800; // Resize to ensure it fits in Firestore 1MB limits
@@ -116,11 +141,18 @@ export const useShopStore = defineStore('shop', () => {
       }
 
       const qDocRef = doc(collection(db, 'queues'));
+      
+      // Store both legacy formatting and new multiple-items logic
       await setDoc(qDocRef, {
         name: queueData.name,
-        product: queueData.product,
-        price: queueData.price,
-        receivedPieces: queueData.receivedPieces || 0,
+        // Fallback for single-item backwards compatibility (mostly for old code references if any remain)
+        product: queueData.items?.[0]?.product?.name || queueData.product || 'หลายรายการ', 
+        receivedPieces: queueData.items?.[0]?.pieces || queueData.receivedPieces || 0,
+        price: queueData.price || 0,
+        
+        // New array structure
+        items: queueData.items || [], 
+        
         status: 'waiting',
         slipImage: slipUrl,
         timestamp: serverTimestamp(),
@@ -141,16 +173,37 @@ export const useShopStore = defineStore('shop', () => {
       // Auto deduct stock if approved
       if (newStatus === 'approved') {
          const queueItem = queues.value.find(q => q.id === id);
-         const targetProduct = products.value.find(p => p.name === queueItem?.product);
-         if (queueItem && targetProduct) {
-             const deductAmt = targetProduct.pricingType === 'rate' ? 0 : queueItem.receivedPieces;
-             // If rate, technically stock is pieces, so yes deduct pieces
-             const finalDeduct = queueItem.receivedPieces;
-             if (targetProduct.quantity >= finalDeduct) {
-               await updateDoc(doc(db, 'products', targetProduct.id), {
-                 quantity: targetProduct.quantity - finalDeduct,
-                 status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
-               });
+         if (queueItem) {
+             const batch = writeBatch(db);
+             
+             // Deduct from NEW items array
+             if (queueItem.items && queueItem.items.length > 0) {
+                 for (const item of queueItem.items) {
+                    const targetProduct = products.value.find(p => p.id === item.product.id);
+                    if (targetProduct) {
+                       const finalDeduct = item.pieces;
+                       if (targetProduct.quantity >= finalDeduct) {
+                           batch.update(doc(db, 'products', targetProduct.id), {
+                               quantity: targetProduct.quantity - finalDeduct,
+                               status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
+                           });
+                       }
+                    }
+                 }
+                 await batch.commit();
+             } 
+             // Deduct using OLD single-product structure
+             else {
+                 const targetProduct = products.value.find(p => p.name === queueItem.product);
+                 if (targetProduct) {
+                     const finalDeduct = queueItem.receivedPieces || 0;
+                     if (targetProduct.quantity >= finalDeduct) {
+                       await updateDoc(doc(db, 'products', targetProduct.id), {
+                         quantity: targetProduct.quantity - finalDeduct,
+                         status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
+                       });
+                     }
+                 }
              }
          }
       }
@@ -168,6 +221,11 @@ export const useShopStore = defineStore('shop', () => {
     queues,
     addQueue,
     updateQueueStatus,
-    initShop
+    initShop,
+    cart,
+    cartTotalBaht,
+    addToCart,
+    removeFromCart,
+    clearCart
   };
 });

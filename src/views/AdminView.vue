@@ -118,10 +118,21 @@ const deleteProduct = (id) => {
               <span v-else-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
               <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
             </div>
-            <p class="text-sm text-slate-500 mt-1">
-              {{ q.product }} • ยอดโอน {{ q.price }} บาท 
-              <span v-if="q.receivedPieces !== undefined" class="text-brand font-medium">(จะได้รับ {{ q.receivedPieces.toLocaleString('th-TH') }} ชิ้น)</span>
-            </p>
+            <div class="mt-2 space-y-1">
+               <template v-if="q.items && q.items.length > 0">
+                 <p v-for="(item, i) in q.items" :key="i" class="text-sm text-slate-600">
+                    <span class="text-slate-400 mr-1">-</span> {{ item.product.name }} 
+                    <span class="text-brand font-medium ml-1">x{{ item.pieces }} ชิ้น</span>
+                 </p>
+               </template>
+               <template v-else>
+                 <p class="text-sm text-slate-600">
+                   <span class="text-slate-400 mr-1">-</span> {{ q.product }} 
+                   <span v-if="q.receivedPieces" class="text-brand font-medium ml-1">x{{ q.receivedPieces.toLocaleString('th-TH') }} ชิ้น</span>
+                 </p>
+               </template>
+               <p class="text-sm font-bold text-slate-800 pt-1 border-t border-slate-100/50 w-max mt-1">ยอดโอนรวม: {{ q.price }} บาท</p>
+            </div>
             <p class="text-xs text-slate-400 mt-2 font-mono">เวลาอัปโหลด: {{ q.time }}</p>
           </div>
 

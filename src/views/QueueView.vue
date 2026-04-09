@@ -78,13 +78,35 @@ const queueDetails = computed(() => {
       </div>
 
       <!-- Details -->
-      <div class="bg-slate-50 p-6 space-y-3 text-sm">
-        <div class="flex justify-between items-center">
-          <span class="text-slate-500">หมายเลขคิว:</span>
-          <span class="font-semibold text-slate-800 tracking-wide text-base">#{{ queueDetails?.id }}</span>
+      <div class="bg-slate-50 p-6 space-y-3 text-sm rounded-b-2xl">
+        
+        <div class="space-y-2 pb-3 border-b border-slate-200/60 font-medium">
+           <p class="text-slate-500 font-normal mb-2">รายการสินค้าที่สั่ง:</p>
+           <template v-if="queueDetails?.items && queueDetails.items.length > 0">
+              <div v-for="(item, i) in queueDetails.items" :key="i" class="flex justify-between items-center">
+                 <span class="text-slate-800">{{ item.product.name }}</span>
+                 <span class="text-brand font-bold bg-brand/10 px-2 py-0.5 rounded-md text-xs">x{{ item.pieces }} ชิ้น</span>
+              </div>
+           </template>
+           <template v-else>
+              <div class="flex justify-between items-center">
+                 <span class="text-slate-800">{{ queueDetails?.productName }}</span>
+                 <span class="text-brand font-bold bg-brand/10 px-2 py-0.5 rounded-md text-xs">x{{ queueDetails?.receivedPieces }} ชิ้น</span>
+              </div>
+           </template>
+           
+           <div class="flex justify-between items-center pt-2 mt-2 border-t border-slate-100/50">
+             <span class="text-slate-500 font-normal">ยอดโอนรวม:</span>
+             <span class="text-slate-800 font-semibold">{{ queueDetails?.price }} บาท</span>
+           </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-1">
+          <span class="text-slate-500">หมายเลขคิว (สแกนอ้างอิง):</span>
+          <span class="font-bold text-slate-400 font-mono text-xs">#{{ queueDetails?.id }}</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-slate-500">สถานะล่าสุด:</span>
+          <span class="text-slate-500">เวลาที่ส่งคำสั่งซื้อ:</span>
           <span class="font-medium text-slate-800">{{ queueDetails?.submittedAt }}</span>
         </div>
       </div>

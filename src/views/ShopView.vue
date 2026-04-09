@@ -10,7 +10,7 @@ import { storeToRefs } from 'pinia';
 const router = useRouter();
 const shopStore = useShopStore();
 const authStore = useAuthStore();
-const { products } = storeToRefs(shopStore);
+const { products, cart, cartTotalBaht } = storeToRefs(shopStore);
 const { user } = storeToRefs(authStore);
 
 const categories = ['ทั้งหมด', 'Reroll', 'Melee', 'Sword', 'Crate', 'Summon'];
@@ -42,7 +42,8 @@ const formatPrice = (price) => {
 };
 
 const selectedProduct = ref(null);
-const isModalOpen = ref(false);
+const isAddModalOpen = ref(false);
+const isCartModalOpen = ref(false);
 const slipImage = ref(null);
 const slipRawFile = ref(null);
 const robloxName = ref('');
@@ -69,17 +70,56 @@ const openCheckout = (product) => {
     return;
   }
   selectedProduct.value = product;
-  robloxName.value = ''; // They need to type their roblox name manually
-  isModalOpen.value = true;
+  purchaseQuantity.value = '';
+  isAddModalOpen.value = true;
 };
 
-const closeCheckout = () => {
-  isModalOpen.value = false;
+const closeAddModal = () => {
+  isAddModalOpen.value = false;
   selectedProduct.value = null;
+  purchaseQuantity.value = '';
+};
+
+const confirmAddToCart = () => {
+  const amount = Number(purchaseQuantity.value) || 0;
+  if (amount <= 0) {
+    alert('กรุณาระบุจำนวนชิ้นที่ต้องการ');
+    return;
+  }
+  
+  const existingCartItem = cart.value.find(i => i.product.id === selectedProduct.value.id);
+  const currentCartPieces = existingCartItem ? existingCartItem.pieces : 0;
+  const totalAttemptedPieces = calculatedPieces.value + currentCartPieces;
+
+  if (totalAttemptedPieces > selectedProduct.value.quantity) {
+    if (currentCartPieces > 0) {
+      alert(`สต๊อกสินค้าไม่พอครับ (คุณหยิบใส่ตะกร้าไว้แล้ว ${currentCartPieces} ชิ้น ปัจจุบันเหลือสต๊อก ${selectedProduct.value.quantity} ชิ้น)`);
+    } else {
+      alert('สต๊อกสินค้าไม่พอสำหรับจำนวนที่คุณต้องการซื้อ');
+    }
+    return;
+  }
+  
+  shopStore.addToCart(selectedProduct.value, calculatedPieces.value, calculatedBaht.value);
+  closeAddModal();
+};
+
+const openCartModal = () => {
+  if (cart.value.length === 0) {
+    alert('ตะกร้าสินค้ายังว่างเปล่าครับ');
+    return;
+  }
+  robloxName.value = '';
   slipImage.value = null;
   slipRawFile.value = null;
+  isCartModalOpen.value = true;
+};
+
+const closeCartModal = () => {
+  isCartModalOpen.value = false;
   robloxName.value = '';
-  purchaseQuantity.value = '';
+  slipImage.value = null;
+  slipRawFile.value = null;
   isSubmitting.value = false;
 };
 
@@ -92,27 +132,30 @@ const handleSlipUpload = (event) => {
 };
 
 const submitOrder = async () => {
-  const amount = Number(purchaseQuantity.value) || 0;
-  if (!robloxName.value || !slipRawFile.value || amount <= 0) {
-    alert('กรุณากรอกข้อมูลให้ครบถ้วนและแนบสลิปการโอนเงิน (จำนวนต้องมากกว่า 0)');
+  if (!robloxName.value || !slipRawFile.value) {
+    alert('กรุณากรอกชื่อ Roblox และแนบสลิปการโอนเงินให้ครบถ้วน');
     return;
   }
-  if (calculatedPieces.value > selectedProduct.value.quantity) {
-    alert('สต๊อกสินค้าไม่พอสำหรับจำนวนที่คุณต้องการซื้อ');
-    return;
+  
+  // หายนะเคส (Worst case scenario): ระหว่างลูกค้ากำลังจะจ่ายเงิน มีคนอื่นเหมาสต๊อกไปแล้ว!
+  for (const item of cart.value) {
+    const upToDateProduct = products.value.find(p => p.id === item.product.id);
+    if (!upToDateProduct || item.pieces > upToDateProduct.quantity) {
+      alert(`ขออภัยครับ สินค้า "${item.product.name}" ตอนนี้เหลือสต๊อกเพียง ${upToDateProduct ? upToDateProduct.quantity : 0} ชิ้น กรุณาลบออกแล้วระบุจำนวนใหม่`);
+      return;
+    }
   }
   
   isSubmitting.value = true;
   
   const mockQueueId = await shopStore.addQueue({
     name: robloxName.value,
-    product: selectedProduct.value.name,
-    price: calculatedBaht.value,
-    receivedPieces: calculatedPieces.value
+    price: cartTotalBaht.value,
+    items: cart.value.map(item => ({ product: item.product, pieces: item.pieces, price: item.baht }))
   }, slipRawFile.value);
 
   isSubmitting.value = false;
-  closeCheckout();
+  closeCartModal();
   if (mockQueueId) {
     router.push(`/queue/${mockQueueId}`);
   } else {
@@ -184,14 +227,24 @@ const submitOrder = async () => {
       </div>
     </div>
 
-    <!-- Checkout Modal -->
-    <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeCheckout"></div>
+    <!-- Floating Cart Button -->
+    <div v-if="cart.length > 0" class="fixed bottom-6 right-6 z-40">
+      <button @click="openCartModal" class="bg-brand text-white p-4 rounded-full shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all hover:scale-105 flex items-center justify-center relative">
+        <ShoppingCart class="w-6 h-6" />
+        <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+          {{ cart.length }}
+        </span>
+      </button>
+    </div>
+
+    <!-- Add to Cart Modal -->
+    <div v-if="isAddModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeAddModal"></div>
       <div class="bg-white rounded-2xl w-full max-w-md relative z-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         
         <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h2 class="text-lg font-semibold text-brand-dark">ยืนยันการสั่งซื้อ</h2>
-          <button @click="closeCheckout" class="text-slate-400 hover:text-slate-600 p-1">
+          <h2 class="text-lg font-semibold text-brand-dark">ระบุจำนวนที่ต้องการ</h2>
+          <button @click="closeAddModal" class="text-slate-400 hover:text-slate-600 p-1">
             <X class="w-5 h-5" />
           </button>
         </div>
@@ -224,19 +277,67 @@ const submitOrder = async () => {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 bg-slate-50">
+          <button @click="confirmAddToCart" class="w-full bg-brand hover:bg-brand-dark text-white font-medium py-3 rounded-xl transition-colors shadow-sm">
+            เพิ่มลงตะกร้า
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cart / Checkout Modal -->
+    <div v-if="isCartModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeCartModal"></div>
+      <div class="bg-white rounded-2xl w-full max-w-md relative z-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h2 class="text-lg font-semibold text-brand-dark">ตะกร้าสินค้าของคุณ</h2>
+          <button @click="closeCartModal" class="text-slate-400 hover:text-slate-600 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto w-full font-sans space-y-6">
+          <!-- Item List -->
+          <div class="space-y-3">
+             <div v-for="(item, index) in cart" :key="index" class="flex justify-between items-center p-3 border border-slate-100 rounded-xl bg-slate-50 group shadow-sm">
+                <div class="flex items-center gap-3">
+                   <img :src="item.product.image" class="w-10 h-10 rounded-lg object-cover bg-white" />
+                   <div>
+                      <p class="font-medium text-slate-800 text-sm line-clamp-1">{{ item.product.name }}</p>
+                      <p class="text-slate-500 text-xs">x{{ item.pieces }} ชิ้น</p>
+                   </div>
+                </div>
+                <div class="flex items-center gap-3">
+                   <span class="font-bold text-brand text-sm">{{ formatPrice(item.baht) }}฿</span>
+                   <button @click="shopStore.removeFromCart(index)" class="text-red-400 hover:text-red-600 transition-colors p-1" title="ลบออก">
+                      <X class="w-4 h-4" />
+                   </button>
+                </div>
+             </div>
+          </div>
+
+          <!-- Total Summary -->
+          <div class="flex justify-between items-center py-3 border-y border-slate-100">
+             <span class="font-semibold text-slate-800">ยอดรวมทั้งหมด</span>
+             <span class="font-bold text-brand text-xl">{{ formatPrice(cartTotalBaht) }} บาท</span>
+          </div>
+
+          <!-- Form -->
+          <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">ชื่อภายในเกม Roblox <span class="text-red-500">*</span></label>
               <input v-model="robloxName" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm" placeholder="กรอกชื่อ Roblox ของคุณ" />
             </div>
 
-            <!-- Payment Info Mock -->
             <div class="bg-brand-light/50 rounded-xl p-4 border border-brand-light">
               <p class="text-sm text-brand-dark font-medium mb-1">บัญชีสำหรับโอนเงิน</p>
               <p class="text-sm text-slate-600">ธนาคารกสิกรไทย: 123-4-56789-0</p>
               <p class="text-sm text-slate-600">ชื่อบัญชี: บจก. เซเลอร์พีซ</p>
             </div>
 
-            <!-- Upload Slip -->
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">แนบสลิปโอนเงิน <span class="text-red-500">*</span></label>
               <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative cursor-pointer group">
@@ -258,9 +359,10 @@ const submitOrder = async () => {
           </div>
         </div>
 
-        <div class="p-4 border-t border-slate-100 bg-slate-50">
-          <button @click="submitOrder" :disabled="isSubmitting" class="w-full bg-brand hover:bg-brand-dark text-white font-medium py-3 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            {{ isSubmitting ? 'กำลังอัปโหลด...' : 'ยืนยันและรับคิว' }}
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
+          <button @click="shopStore.clearCart(); closeCartModal();" class="px-4 py-3 rounded-xl font-medium text-slate-500 hover:bg-slate-200 transition-colors bg-slate-100">ลบตะกร้า</button>
+          <button @click="submitOrder" :disabled="isSubmitting" class="flex-1 bg-brand hover:bg-brand-dark text-white font-medium py-3 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            {{ isSubmitting ? 'กำลังอัปโหลด...' : 'ชำระเงินและรับคิว' }}
           </button>
         </div>
       </div>
