@@ -338,9 +338,9 @@ const submitOrder = async () => {
             </div>
 
             <div class="bg-brand-light/50 rounded-xl p-4 border border-brand-light">
-              <p class="text-sm text-brand-dark font-medium mb-1">บัญชีสำหรับโอนเงิน</p>
-              <p class="text-sm text-slate-600">ธนาคารกสิกรไทย: 123-4-56789-0</p>
-              <p class="text-sm text-slate-600">ชื่อบัญชี: บจก. เซเลอร์พีซ</p>
+              <p class="text-sm text-brand-dark font-medium mb-1">ช่องทางสำหรับโอนเงิน</p>
+              <p class="text-sm text-slate-600">พร้อมเพย์ (Promptpay): 0811780531</p>
+              <p class="text-sm text-slate-600">ทรูมันนี่ (TrueMoney Wallet): 0840100637</p>
             </div>
 
             <div>
