@@ -46,7 +46,6 @@ const isAddModalOpen = ref(false);
 const isCartModalOpen = ref(false);
 const slipImage = ref(null);
 const slipRawFile = ref(null);
-const slipRawFile = ref(null);
 const robloxName = ref('');
 const paymentMethod = ref('slip'); // 'slip' or 'wallet'
 const purchaseQuantity = ref('');
@@ -133,7 +132,7 @@ const handleSlipUpload = (event) => {
     slipImage.value = URL.createObjectURL(file);
   }
 };
-
+const submitOrder = async () => {
   if (!robloxName.value) {
     alert('กรุณากรอกชื่อ Roblox ให้ครบถ้วน');
     return;
