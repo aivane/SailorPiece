@@ -127,6 +127,19 @@ const userHistoryQueues = computed(() => {
           <span class="text-slate-500">เวลาที่ส่งคำสั่งซื้อ:</span>
           <span class="font-medium text-slate-800">{{ queueDetails?.submittedAt }}</span>
         </div>
+
+        <!-- VIP Server Link -->
+        <div class="pt-5 mt-4 border-t border-slate-200/60">
+          <a 
+            href="https://www.roblox.com/share?code=074525e4a09c8f45bb50ed8d5cfe4788&type=Server" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="flex items-center justify-center w-full py-3.5 px-4 bg-[#232527] hover:bg-[#111213] text-white rounded-xl font-bold transition-all hover:scale-[1.02] shadow-md shadow-black/10 gap-2 border border-slate-800 text-base"
+          >
+            🎮 กดเข้าเซิร์ฟ VIP (Roblox)
+          </a>
+          <p class="text-xs text-center text-slate-500 mt-2">ปล. คุณสามารถกดปุ่มนี้เพื่อเข้าไปรอแอดมินส่งของในเกมได้เลยครับ</p>
+        </div>
       </div>
     </div>
 
