@@ -19,20 +19,25 @@ export const useAuthStore = defineStore('auth', () => {
       isAdmin.value = currentUser?.email === ADMIN_EMAIL;
       
       if (currentUser) {
-        // Fetch or Create user profile
-        const userRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(userRef);
-        if (docSnap.exists()) {
-          userProfile.value = { 
-            robloxName: docSnap.data().robloxName || '', 
-            tiktokName: docSnap.data().tiktokName || '', 
-            virtualWallet: docSnap.data().virtualWallet || 0 
-          };
-        } else {
-          // Initialize empty profile
-          const initialProfile = { robloxName: '', tiktokName: '', virtualWallet: 0 };
-          await setDoc(userRef, initialProfile);
-          userProfile.value = initialProfile;
+        try {
+          // Fetch or Create user profile
+          const userRef = doc(db, 'users', currentUser.uid);
+          const docSnap = await getDoc(userRef);
+          if (docSnap.exists()) {
+            userProfile.value = { 
+              robloxName: docSnap.data().robloxName || '', 
+              tiktokName: docSnap.data().tiktokName || '', 
+              virtualWallet: docSnap.data().virtualWallet || 0 
+            };
+          } else {
+            // Initialize empty profile
+            const initialProfile = { robloxName: '', tiktokName: '', virtualWallet: 0 };
+            await setDoc(userRef, initialProfile);
+            userProfile.value = initialProfile;
+          }
+        } catch (err) {
+          console.error("Error fetching user profile:", err);
+          userProfile.value = { robloxName: '', tiktokName: '', virtualWallet: 0 }; // Fallback
         }
       } else {
          userProfile.value = { robloxName: '', tiktokName: '', virtualWallet: 0 };

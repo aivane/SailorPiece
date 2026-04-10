@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
-import { User, Wallet, Edit, Check, Link, Gamepad2, Smartphone, Save } from 'lucide-vue-next';
+import { User, Wallet, Edit, Check, Link, Gamepad2, Smartphone, Save, Copy } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 const { user, userProfile, loading } = storeToRefs(authStore);
@@ -53,6 +53,18 @@ const saveProfile = async () => {
     isSaving.value = false;
   }
 };
+
+const copied = ref(false);
+const copyUid = async () => {
+  if (!user.value?.uid) return;
+  try {
+    await navigator.clipboard.writeText(user.value.uid);
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+  }
+};
 </script>
 
 <template>
@@ -85,9 +97,12 @@ const saveProfile = async () => {
           <img :src="user.photoURL" class="w-24 h-24 rounded-full border-4 border-slate-100 mb-4 shadow-sm" />
           <h2 class="text-lg font-bold text-slate-800">{{ user.displayName }}</h2>
           <p class="text-sm text-slate-500 truncate w-full" :title="user.email">{{ user.email }}</p>
-          <div class="mt-4 px-3 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-500 font-mono">
-            UID: {{ user.uid.substring(0, 8) }}...
-          </div>
+          <button @click="copyUid" class="mt-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-slate-600 font-mono flex items-center gap-2 transition-colors cursor-pointer group" title="คลิกเพื่อคัดลอก UID เต็ม">
+            <span>UID: {{ user.uid.substring(0, 8) }}...</span>
+            <Check v-if="copied" class="w-3.5 h-3.5 text-emerald-500" />
+            <Copy v-else class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
+            <span v-if="copied" class="absolute -top-8 bg-black text-white text-[10px] py-1 px-2 rounded-md whitespace-nowrap">คัดลอกแล้ว!</span>
+          </button>
         </div>
 
         <div class="bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-md p-6 text-white relative overflow-hidden">
