@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet } from 'lucide-vue-next';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search } from 'lucide-vue-next';
+
+import { db } from '../firebase/config';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
@@ -10,8 +13,41 @@ const shopStore = useShopStore();
 const authStore = useAuthStore();
 const { products, queues: currentQueues, categories } = storeToRefs(shopStore);
 
-// View State: 'products' | 'queue' | 'history' | 'categories' | 'wallet'
+// Use 'users' tab instead of 'wallet'
 const activeTab = ref('queue');
+
+const allUsers = ref([]);
+let usersUnsubscribe = null;
+
+onMounted(() => {
+  usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+    allUsers.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  });
+});
+
+onUnmounted(() => {
+  if (usersUnsubscribe) usersUnsubscribe();
+});
+
+const searchHistoryText = ref('');
+const searchUserText = ref('');
+
+const filteredUsers = computed(() => {
+  let list = allUsers.value;
+  if(searchUserText.value.trim()) {
+    const term = searchUserText.value.toLowerCase();
+    list = list.filter(u => 
+      (u.robloxName && u.robloxName.toLowerCase().includes(term)) ||
+      (u.tiktokName && u.tiktokName.toLowerCase().includes(term)) ||
+      (u.displayName && u.displayName.toLowerCase().includes(term)) ||
+      (u.email && u.email.toLowerCase().includes(term)) ||
+      (u.id && u.id.toLowerCase().includes(term))
+    );
+  }
+  return list;
+});
+
+const isAdjustModalOpen = ref(false);
 
 const targetUid = ref('');
 const adjustAmount = ref(0);
@@ -27,10 +63,26 @@ const handleAdjustWallet = async () => {
    const result = await authStore.adjustWallet(targetUid.value, adjustAmount.value);
    adjustMessage.value = result.message;
    if (result.success) {
-      targetUid.value = '';
-      adjustAmount.value = 0;
+      setTimeout(() => {
+         isAdjustModalOpen.value = false;
+         targetUid.value = '';
+         adjustAmount.value = 0;
+         adjustMessage.value = '';
+      }, 1500);
    }
    isAdjusting.value = false;
+};
+
+const openAdjustModal = (uid) => {
+  targetUid.value = uid;
+  adjustAmount.value = 0;
+  adjustMessage.value = '';
+  isAdjustModalOpen.value = true;
+};
+
+const viewUserHistory = (uid) => {
+  searchHistoryText.value = uid;
+  activeTab.value = 'history';
 };
 
 const newCategoryName = ref('');
@@ -54,7 +106,20 @@ const removeCategory = async (catToRemove) => {
 };
 
 const waitingQueues = computed(() => currentQueues.value.filter(q => q.status === 'waiting'));
-const historyQueues = computed(() => currentQueues.value.filter(q => q.status !== 'waiting'));
+const historyQueues = computed(() => {
+  let list = currentQueues.value.filter(q => q.status !== 'waiting');
+  if (searchHistoryText.value.trim()) {
+    const term = searchHistoryText.value.toLowerCase();
+    list = list.filter(q => 
+       (q.name && q.name.toLowerCase().includes(term)) ||
+       (q.tiktokName && q.tiktokName.toLowerCase().includes(term)) ||
+       (q.uid && q.uid.toLowerCase().includes(term)) ||
+       (q.queueNumber && String(q.queueNumber).includes(term)) ||
+       (q.id && q.id.toLowerCase().includes(term))
+    );
+  }
+  return list;
+});
 
 const approveQueue = (id) => { shopStore.updateQueueStatus(id, 'approved'); };
 const rejectQueue = (id) => { shopStore.updateQueueStatus(id, 'rejected'); };
@@ -147,10 +212,10 @@ const deleteProduct = (id) => {
           <Layers class="w-4 h-4" /> จัดการหมวดหมู่
         </button>
         <button 
-          @click="activeTab = 'wallet'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'wallet' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
+          @click="activeTab = 'users'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
         >
-          <Wallet class="w-4 h-4" /> Virtual Wallet
+          <UserCog class="w-4 h-4" /> จัดการผู้ใช้
         </button>
       </div>
     </div>
@@ -227,8 +292,18 @@ const deleteProduct = (id) => {
 
     <!-- History Tab -->
     <div v-if="activeTab === 'history'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="p-6 border-b border-slate-100">
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
          <h2 class="text-lg font-semibold text-slate-800">ประวัติการทำรายการ</h2>
+         <!-- History Search -->
+         <div class="relative w-full sm:w-72">
+           <input 
+             v-model="searchHistoryText" 
+             type="text" 
+             placeholder="ค้นหาชื่อ, UID, รหัสคิว..." 
+             class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand outline-none"
+           />
+           <Search class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+         </div>
       </div>
       <div class="divide-y divide-slate-100">
         <div v-for="q in historyQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors opacity-80 hover:opacity-100">
@@ -346,35 +421,101 @@ const deleteProduct = (id) => {
       </div>
     </div>
     
-    <!-- Virtual Wallet Tab -->
-    <div v-if="activeTab === 'wallet'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
-      <div class="flex justify-between items-center">
+    <!-- Users Management Tab -->
+    <div v-if="activeTab === 'users'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-          <Wallet class="w-6 h-6 text-emerald-500" /> 
-          จัดการ Virtual Wallet (เติมเงิน / หักเงิน)
+          <UserCog class="w-6 h-6 text-emerald-500" /> 
+          จัดการรายชื่อผู้ใช้และ Wallet
         </h2>
+        <!-- User Search -->
+        <div class="relative w-full sm:w-64">
+           <input 
+             v-model="searchUserText" 
+             type="text" 
+             placeholder="ค้นหาชื่อ, อีเมล, UID..." 
+             class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none"
+           />
+           <Search class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        </div>
       </div>
       
-      <div class="bg-emerald-50/50 border border-emerald-100 p-6 rounded-xl space-y-4 max-w-xl">
-        <p class="text-sm text-slate-600">คุณสามารถปรับยอดเงินในกระเป๋าลูกค้าได้โดยตรง หากต้องการหักเงินให้ใส่ตัวเลขติดลบ (เช่น -50)</p>
-        
-        <div class="space-y-4">
+      <div class="overflow-x-auto rounded-xl border border-slate-100">
+        <table class="w-full text-left text-sm whitespace-nowrap">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
+              <th class="px-4 py-3 font-medium">โปรไฟล์ / บัญชี</th>
+              <th class="px-4 py-3 font-medium">ชื่อในเกม (Roblox)</th>
+              <th class="px-4 py-3 font-medium">TikTok</th>
+              <th class="px-4 py-3 font-medium">ยอด Wallet</th>
+              <th class="px-4 py-3 font-medium text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-slate-50/50 transition-colors">
+              <td class="px-4 py-3 flex items-center gap-3">
+                 <img v-if="u.photoURL" :src="u.photoURL" class="w-8 h-8 rounded-full border border-slate-200 object-cover" />
+                 <div v-else class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0"><UserCog class="w-4 h-4 text-slate-400" /></div>
+                 <div>
+                    <p class="font-medium text-slate-800">{{ u.displayName || 'ไม่มีชื่อโปรไฟล์' }}</p>
+                    <p class="text-xs text-slate-400 font-mono">{{ u.id.substring(0,8) }}...</p>
+                 </div>
+              </td>
+              <td class="px-4 py-3 text-slate-600">
+                <span v-if="u.robloxName" class="font-medium">{{ u.robloxName }}</span>
+                <span v-else class="text-slate-400 text-xs italic">ยังไม่กรอก</span>
+              </td>
+              <td class="px-4 py-3 text-slate-600">
+                <span v-if="u.tiktokName">{{ u.tiktokName }}</span>
+                <span v-else class="text-slate-400 text-xs italic">ยังไม่กรอก</span>
+              </td>
+              <td class="px-4 py-3">
+                 <span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{{ (u.virtualWallet || 0).toLocaleString() }} ฿</span>
+              </td>
+              <td class="px-4 py-3 text-right space-x-3">
+                <button @click="viewUserHistory(u.id)" class="text-blue-500 hover:text-blue-700 font-medium transition-colors text-xs bg-blue-50 px-2 py-1 rounded">ประวัติคิว</button>
+                <button @click="openAdjustModal(u.id)" class="text-emerald-600 hover:text-emerald-800 font-medium transition-colors text-xs bg-emerald-100 px-2 py-1 rounded shadow-sm outline outline-1 outline-emerald-200">ปรับยอดเงิน</button>
+              </td>
+            </tr>
+            <tr v-if="filteredUsers.length === 0">
+               <td colspan="5" class="px-4 py-8 text-center text-slate-500">เงียบเหงาเกินไป ไม่พบข้อมูลผู้ใช้เลย...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Virtual Wallet Adjust Modal -->
+    <div v-if="isAdjustModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isAdjustModalOpen = false"></div>
+      <div class="bg-white rounded-2xl w-full max-w-sm relative z-10 overflow-hidden shadow-2xl flex flex-col">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50">
+          <h2 class="text-lg font-semibold text-emerald-800 flex items-center gap-2">
+             <Wallet class="w-5 h-5 text-emerald-500" /> ปรับลดยอดเงิน
+          </h2>
+          <button @click="isAdjustModalOpen = false" class="text-emerald-600 hover:text-emerald-800 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">UID ของลูกค้า (คัดลอกได้จากโปรไฟล์ลูกค้า)</label>
-              <input v-model="targetUid" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="วาง UID ที่นี่" />
+              <p class="text-sm font-medium text-slate-600 mb-1">UID ของลูกค้า</p>
+              <div class="bg-slate-100 px-3 py-2 rounded-lg text-sm text-slate-800 font-mono">{{ targetUid }}</div>
            </div>
            <div>
               <label class="block text-sm font-medium text-slate-700 mb-1">จำนวนหน่วย (บาท)</label>
-              <input v-model.number="adjustAmount" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="ช่องนี้ใส่เฉพาะตัวเลข" />
+              <input v-model.number="adjustAmount" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-300" placeholder="ใส่ค่าลบเพื่อหักออก เช่น -50" />
            </div>
            
-           <div v-if="adjustMessage" class="px-4 py-2 rounded-lg text-sm bg-slate-100 font-medium">
+           <div v-if="adjustMessage" class="px-4 py-2 rounded-lg text-xs" :class="targetUid ? 'bg-emerald-100 text-emerald-800' : 'bg-red-50 text-red-600'">
              {{ adjustMessage }}
            </div>
-           
-           <button @click="handleAdjustWallet" :disabled="isAdjusting" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-50 mt-2">
-             {{ isAdjusting ? 'กำลังดำเนินการ...' : 'ยืนยันการปรับยอดเงิน' }}
-           </button>
+        </div>
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button @click="isAdjustModalOpen = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">ยกเลิก</button>
+          <button @click="handleAdjustWallet" :disabled="isAdjusting" class="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+             {{ isAdjusting ? 'กำลังดำเนินการ...' : 'ยืนยัน' }}
+          </button>
         </div>
       </div>
     </div>

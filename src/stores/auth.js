@@ -29,9 +29,22 @@ export const useAuthStore = defineStore('auth', () => {
               tiktokName: docSnap.data().tiktokName || '', 
               virtualWallet: docSnap.data().virtualWallet || 0 
             };
+            // Keep google info fresh in the DB for admin
+            await updateDoc(userRef, {
+              displayName: currentUser.displayName || '',
+              email: currentUser.email || '',
+              photoURL: currentUser.photoURL || ''
+            });
           } else {
             // Initialize empty profile
-            const initialProfile = { robloxName: '', tiktokName: '', virtualWallet: 0 };
+            const initialProfile = { 
+               robloxName: '', 
+               tiktokName: '', 
+               virtualWallet: 0,
+               displayName: currentUser.displayName || '',
+               email: currentUser.email || '',
+               photoURL: currentUser.photoURL || ''
+            };
             await setDoc(userRef, initialProfile);
             userProfile.value = initialProfile;
           }
