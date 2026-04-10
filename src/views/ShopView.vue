@@ -20,7 +20,8 @@ const activeCategory = ref('ทั้งหมด');
 const searchQuery = ref('');
 
 const filteredProducts = computed(() => {
-  let result = products.value;
+  // First, filter out items that don't have an image or are priced at 0 (drafts/imported items)
+  let result = products.value.filter(p => p.image && p.price > 0);
   
   // 1. Filter by category
   if (activeCategory.value !== 'ทั้งหมด') {
