@@ -123,8 +123,18 @@ const historyQueues = computed(() => {
   return list;
 });
 
-const approveQueue = (id) => { shopStore.updateQueueStatus(id, 'approved'); };
-const rejectQueue = (id) => { shopStore.updateQueueStatus(id, 'rejected'); };
+const approveQueue = async (id) => { 
+  const res = await shopStore.updateQueueStatus(id, 'approved'); 
+  if (res && !res.success) {
+     uiStore.showAlert(res.message, 'error');
+  } else {
+     uiStore.showAlert('อนุมัติคิวและตัดสต๊อกสำเร็จ', 'success');
+  }
+};
+const rejectQueue = async (id) => { 
+  await shopStore.updateQueueStatus(id, 'rejected'); 
+  uiStore.showAlert('ปฏิเสธคิวสำเร็จ', 'info');
+};
 
 const isModalOpen = ref(false);
 const editingProductId = ref(null);

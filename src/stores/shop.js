@@ -224,9 +224,8 @@ export const useShopStore = defineStore('shop', () => {
   const updateQueueStatus = async (id, newStatus) => {
     try {
       const qRef = doc(db, 'queues', id);
-      await updateDoc(qRef, { status: newStatus });
       
-      // Auto deduct stock if approved
+      // If approving, we MUST check stock strictly before doing anything
       if (newStatus === 'approved') {
          const queueItem = queues.value.find(q => q.id === id);
          if (queueItem) {
@@ -236,36 +235,43 @@ export const useShopStore = defineStore('shop', () => {
              if (queueItem.items && queueItem.items.length > 0) {
                  for (const item of queueItem.items) {
                     const targetProduct = products.value.find(p => p.id === item.product.id);
-                    if (targetProduct) {
-                       const finalDeduct = item.pieces;
-                       if (targetProduct.quantity >= finalDeduct) {
-                           batch.update(doc(db, 'products', targetProduct.id), {
-                               quantity: targetProduct.quantity - finalDeduct,
-                               status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
-                           });
-                       }
+                    if (!targetProduct || targetProduct.quantity < item.pieces) {
+                       return { success: false, message: `ไม่สามารถอนุมัติได้ สินค้า ${item.product.name} มีสต๊อกไม่พอ ณ ปัจจุบัน` };
                     }
+                    batch.update(doc(db, 'products', targetProduct.id), {
+                        quantity: targetProduct.quantity - item.pieces,
+                        status: (targetProduct.quantity - item.pieces) > 0 ? 'available' : 'out-of-stock'
+                    });
                  }
+                 batch.update(qRef, { status: newStatus });
                  await batch.commit();
+                 return { success: true };
              } 
              // Deduct using OLD single-product structure
              else {
                  const targetProduct = products.value.find(p => p.name === queueItem.product);
-                 if (targetProduct) {
-                     const finalDeduct = queueItem.receivedPieces || 0;
-                     if (targetProduct.quantity >= finalDeduct) {
-                       await updateDoc(doc(db, 'products', targetProduct.id), {
-                         quantity: targetProduct.quantity - finalDeduct,
-                         status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
-                       });
-                     }
+                 const finalDeduct = queueItem.receivedPieces || 0;
+                 if (!targetProduct || targetProduct.quantity < finalDeduct) {
+                    return { success: false, message: `ไม่สามารถอนุมัติได้ สินค้า ${queueItem.product} มีสต๊อกไม่พอ ณ ปัจจุบัน` };
                  }
+                 batch.update(doc(db, 'products', targetProduct.id), {
+                    quantity: targetProduct.quantity - finalDeduct,
+                    status: (targetProduct.quantity - finalDeduct) > 0 ? 'available' : 'out-of-stock'
+                 });
+                 batch.update(qRef, { status: newStatus });
+                 await batch.commit();
+                 return { success: true };
              }
          }
+      } else {
+         // Rejecting or other status
+         await updateDoc(qRef, { status: newStatus });
+         return { success: true };
       }
 
     } catch(e) {
       console.error("Error updating queue status:", e);
+      return { success: false, message: e.message };
     }
   };
 
