@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { ShoppingCart, UploadCloud, X, Search } from 'lucide-vue-next';
+import { ShoppingCart, UploadCloud, X, Search, Wallet } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useShopStore } from '../stores/shop';
@@ -11,7 +11,7 @@ const router = useRouter();
 const shopStore = useShopStore();
 const authStore = useAuthStore();
 const { products, cart, cartTotalBaht, categories: storeCategories } = storeToRefs(shopStore);
-const { user } = storeToRefs(authStore);
+const { user, userProfile } = storeToRefs(authStore);
 
 const categories = computed(() => ['ทั้งหมด', ...storeCategories.value]);
 const activeCategory = ref('ทั้งหมด');
@@ -46,7 +46,9 @@ const isAddModalOpen = ref(false);
 const isCartModalOpen = ref(false);
 const slipImage = ref(null);
 const slipRawFile = ref(null);
+const slipRawFile = ref(null);
 const robloxName = ref('');
+const paymentMethod = ref('slip'); // 'slip' or 'wallet'
 const purchaseQuantity = ref('');
 const isSubmitting = ref(false);
 
@@ -109,7 +111,8 @@ const openCartModal = () => {
     alert('ตะกร้าสินค้ายังว่างเปล่าครับ');
     return;
   }
-  robloxName.value = '';
+  robloxName.value = userProfile.value?.robloxName || '';
+  paymentMethod.value = 'slip';
   slipImage.value = null;
   slipRawFile.value = null;
   isCartModalOpen.value = true;
@@ -131,10 +134,19 @@ const handleSlipUpload = (event) => {
   }
 };
 
-const submitOrder = async () => {
-  if (!robloxName.value || !slipRawFile.value) {
-    alert('กรุณากรอกชื่อ Roblox และแนบสลิปการโอนเงินให้ครบถ้วน');
+  if (!robloxName.value) {
+    alert('กรุณากรอกชื่อ Roblox ให้ครบถ้วน');
     return;
+  }
+  if (paymentMethod.value === 'slip' && !slipRawFile.value) {
+    alert('กรุณาแนบสลิปการโอนเงิน');
+    return;
+  }
+  if (paymentMethod.value === 'wallet') {
+     if (!userProfile.value || userProfile.value.virtualWallet < cartTotalBaht.value) {
+        alert('ยอดเงินใน Virtual Wallet ของคุณมีไม่เพียงพอ');
+        return;
+     }
   }
   
   // หายนะเคส (Worst case scenario): ระหว่างลูกค้ากำลังจะจ่ายเงิน มีคนอื่นเหมาสต๊อกไปแล้ว!
@@ -147,13 +159,24 @@ const submitOrder = async () => {
   }
   
   isSubmitting.value = true;
+
+  if (paymentMethod.value === 'wallet') {
+      const adjustRes = await authStore.adjustWallet(user.value.uid, -cartTotalBaht.value);
+      if (!adjustRes.success) {
+          alert('เกิดข้อผิดพลาดในการตัดเงินจาก Wallet');
+          isSubmitting.value = false;
+          return;
+      }
+  }
   
   const mockQueueId = await shopStore.addQueue({
     name: robloxName.value,
+    tiktokName: userProfile.value?.tiktokName || '',
+    paymentMethod: paymentMethod.value,
     uid: user.value ? user.value.uid : null,
     price: cartTotalBaht.value,
     items: cart.value.map(item => ({ product: item.product, pieces: item.pieces, price: item.baht }))
-  }, slipRawFile.value);
+  }, paymentMethod.value === 'slip' ? slipRawFile.value : null);
 
   isSubmitting.value = false;
   closeCartModal();
@@ -337,30 +360,62 @@ const submitOrder = async () => {
               <input v-model="robloxName" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm" placeholder="กรอกชื่อ Roblox ของคุณ" />
             </div>
 
-            <div class="bg-brand-light/50 rounded-xl p-4 border border-brand-light">
-              <p class="text-sm text-brand-dark font-medium mb-1">ช่องทางสำหรับโอนเงิน</p>
-              <p class="text-sm text-slate-600">พร้อมเพย์ (Promptpay): 0811780531</p>
-              <p class="text-sm text-slate-600">ทรูมันนี่ (TrueMoney Wallet): 0840100637</p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">แนบสลิปโอนเงิน <span class="text-red-500">*</span></label>
-              <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative cursor-pointer group">
-                <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" @change="handleSlipUpload" />
-                <div v-if="!slipImage" class="space-y-2 pointer-events-none">
-                  <div class="w-10 h-10 bg-brand-light rounded-full flex items-center justify-center mx-auto text-brand">
-                    <UploadCloud class="w-5 h-5" />
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-slate-700 mb-1">เลือกช่องทางการชำระเงิน <span class="text-red-500">*</span></label>
+              
+              <div class="grid grid-cols-2 gap-3">
+                <label class="cursor-pointer">
+                  <input type="radio" value="slip" v-model="paymentMethod" class="peer hidden" />
+                  <div class="border border-slate-200 rounded-xl p-3 text-center transition-all peer-checked:border-brand peer-checked:bg-brand/5 peer-checked:ring-1 peer-checked:ring-brand flex flex-col items-center justify-center gap-1 h-full">
+                    <UploadCloud class="w-5 h-5 text-slate-400 peer-checked:text-brand" :class="{'text-brand': paymentMethod === 'slip'}" />
+                    <span class="text-xs font-medium text-slate-600" :class="{'text-brand-dark': paymentMethod === 'slip'}">โอนเงิน (แนบสลิป)</span>
                   </div>
-                  <p class="text-sm text-slate-500">คลิก หรือ ลากสลิปมาวางที่นี่</p>
-                </div>
-                <div v-else class="relative pointer-events-none">
-                  <img :src="slipImage" class="max-h-40 mx-auto rounded-lg shadow-sm" />
-                  <div class="absolute inset-0 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                    <span class="text-brand font-medium text-sm drop-shadow-md">เปลี่ยนสลิป</span>
+                </label>
+                
+                <label class="cursor-pointer relative">
+                  <input type="radio" value="wallet" v-model="paymentMethod" class="peer hidden" :disabled="!userProfile || userProfile.virtualWallet < cartTotalBaht" />
+                  <div class="border border-slate-200 rounded-xl p-3 text-center transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:ring-1 peer-checked:ring-emerald-500 flex flex-col items-center justify-center gap-1 h-full opacity-100 peer-disabled:opacity-50 peer-disabled:bg-slate-50 peer-disabled:cursor-not-allowed">
+                    <Wallet class="w-5 h-5 text-slate-400 peer-checked:text-emerald-500" :class="{'text-emerald-500': paymentMethod === 'wallet'}" />
+                    <span class="text-xs font-medium text-slate-600" :class="{'text-emerald-700': paymentMethod === 'wallet'}">กระเป๋าเงิน (Wallet)</span>
+                    <span v-if="userProfile" class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 mt-0.5" :class="{'text-red-500 bg-red-50': userProfile.virtualWallet < cartTotalBaht}">มี: {{ userProfile.virtualWallet }}฿</span>
                   </div>
-                </div>
+                </label>
               </div>
             </div>
+
+            <template v-if="paymentMethod === 'slip'">
+               <div class="bg-brand-light/50 rounded-xl p-4 border border-brand-light">
+                 <p class="text-sm text-brand-dark font-medium mb-1">บัญชีสำหรับโอนเงิน</p>
+                 <p class="text-sm text-slate-600">พร้อมเพย์ (Promptpay): 0811780531</p>
+                 <p class="text-sm text-slate-600">ทรูมันนี่ (TrueMoney): 0840100637</p>
+               </div>
+   
+               <div>
+                 <label class="block text-sm font-medium text-slate-700 mb-1">แนบสลิปโอนเงิน <span class="text-red-500">*</span></label>
+                 <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative cursor-pointer group">
+                   <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" @change="handleSlipUpload" />
+                   <div v-if="!slipImage" class="space-y-2 pointer-events-none">
+                     <div class="w-10 h-10 bg-brand-light rounded-full flex items-center justify-center mx-auto text-brand">
+                       <UploadCloud class="w-5 h-5" />
+                     </div>
+                     <p class="text-sm text-slate-500">คลิก หรือ ลากสลิปมาวางที่นี่</p>
+                   </div>
+                   <div v-else class="relative pointer-events-none">
+                     <img :src="slipImage" class="max-h-40 mx-auto rounded-lg shadow-sm" />
+                     <div class="absolute inset-0 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                       <span class="text-brand font-medium text-sm drop-shadow-md">เปลี่ยนสลิป</span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+            </template>
+            <template v-else>
+               <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex flex-col items-center justify-center text-center">
+                  <Wallet class="w-8 h-8 text-emerald-400 mb-2" />
+                  <p class="text-emerald-800 font-medium text-sm">ยอดเงินปัจจุบันของคุณคือ {{ userProfile?.virtualWallet || 0 }} บาท</p>
+                  <p class="text-emerald-600/80 text-xs mt-1">ระบบจะหักเงิน {{ cartTotalBaht }} บาททันทีที่คุณกดยืนยัน</p>
+               </div>
+            </template>
           </div>
         </div>
 

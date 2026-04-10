@@ -173,7 +173,9 @@ export const useShopStore = defineStore('shop', () => {
       
       // Store both legacy formatting and new multiple-items logic
       await setDoc(qDocRef, {
-        name: queueData.name,
+        name: queueData.name, // Usually robloxName
+        tiktokName: queueData.tiktokName || '',
+        paymentMethod: queueData.paymentMethod || 'slip',
         uid: queueData.uid || null, // Track user who bought it
         queueNumber: newQueueNumber,
         // Fallback for single-item backwards compatibility (mostly for old code references if any remain)

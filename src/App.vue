@@ -37,10 +37,10 @@ const { user, isAdmin, loading } = storeToRefs(authStore)
             
             <div v-if="loading" class="w-20 h-8 bg-slate-100 rounded animate-pulse"></div>
             <div v-else-if="user" class="flex items-center gap-3">
-              <div class="flex items-center gap-2">
+              <RouterLink to="/profile" class="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-slate-200">
                 <img :src="user.photoURL" class="w-8 h-8 rounded-full border border-slate-200" />
-                <span class="text-sm font-medium hidden sm:block">{{ user.displayName?.split(' ')[0] }}</span>
-              </div>
+                <span class="text-sm font-medium hidden sm:block text-slate-700">{{ user.displayName?.split(' ')[0] }}</span>
+              </RouterLink>
               <button @click="authStore.logout" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="ออกจากระบบ">
                 <LogOut class="w-5 h-5" />
               </button>

@@ -1,15 +1,37 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet } from 'lucide-vue-next';
 
 import { useShopStore } from '../stores/shop';
+import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
 
 const shopStore = useShopStore();
+const authStore = useAuthStore();
 const { products, queues: currentQueues, categories } = storeToRefs(shopStore);
 
-// View State: 'products' | 'queue' | 'history' | 'categories'
+// View State: 'products' | 'queue' | 'history' | 'categories' | 'wallet'
 const activeTab = ref('queue');
+
+const targetUid = ref('');
+const adjustAmount = ref(0);
+const adjustMessage = ref('');
+const isAdjusting = ref(false);
+
+const handleAdjustWallet = async () => {
+   if (!targetUid.value || !adjustAmount.value) {
+      adjustMessage.value = 'กรุณาระบุ UID และ จำนวนเงิน (ใส่ค่าลบเพื่อหักออก)';
+      return;
+   }
+   isAdjusting.value = true;
+   const result = await authStore.adjustWallet(targetUid.value, adjustAmount.value);
+   adjustMessage.value = result.message;
+   if (result.success) {
+      targetUid.value = '';
+      adjustAmount.value = 0;
+   }
+   isAdjusting.value = false;
+};
 
 const newCategoryName = ref('');
 const addCategory = async () => {
@@ -124,6 +146,12 @@ const deleteProduct = (id) => {
         >
           <Layers class="w-4 h-4" /> จัดการหมวดหมู่
         </button>
+        <button 
+          @click="activeTab = 'wallet'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'wallet' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <Wallet class="w-4 h-4" /> Virtual Wallet
+        </button>
       </div>
     </div>
 
@@ -138,7 +166,13 @@ const deleteProduct = (id) => {
           
           <!-- Slip Preview Box -->
           <div class="w-24 h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
-            <template v-if="q.slipImage">
+            <template v-if="q.paymentMethod === 'wallet'">
+               <div class="w-full h-full flex flex-col items-center justify-center bg-emerald-50 text-emerald-600 p-2 text-center text-xs">
+                 <Wallet class="w-6 h-6 mb-1 opacity-70" />
+                 <b>ชำระผ่าน Wallet</b>
+               </div>
+            </template>
+            <template v-else-if="q.slipImage">
               <img :src="q.slipImage" class="w-full h-full object-cover grayscale mix-blend-multiply opacity-50" />
               <div @click="viewSlip(q.slipImage)" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
                 <span class="text-xs text-white font-medium">ดูสลิปเต็ม</span>
@@ -149,10 +183,14 @@ const deleteProduct = (id) => {
           
           <div class="flex-grow">
             <div class="flex items-center gap-2">
-              <h3 class="font-bold text-slate-800">แอดมินตรวจคิว #{{ q.queueNumber || q.id }} ({{ q.name }})</h3>
+              <h3 class="font-bold text-slate-800">แอดมินตรวจคิว #{{ q.queueNumber || q.id }}</h3>
               <span v-if="q.status === 'waiting'" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wider">รอยืนยัน</span>
               <span v-else-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
               <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
+            </div>
+            <div class="mt-1 flex flex-wrap gap-2 text-xs">
+               <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100">𝗥𝗼𝗯𝗹𝗼𝘅: <b>{{ q.name || '-' }}</b></span>
+               <span class="bg-pink-50 text-pink-700 px-2 py-1 rounded border border-pink-100">𝗧𝗶𝗸𝗧𝗼𝗸: <b>{{ q.tiktokName || '-' }}</b></span>
             </div>
             <div class="mt-2 space-y-1">
                <template v-if="q.items && q.items.length > 0">
@@ -195,9 +233,14 @@ const deleteProduct = (id) => {
       <div class="divide-y divide-slate-100">
         <div v-for="q in historyQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors opacity-80 hover:opacity-100">
           
-          <!-- Slip Preview Box -->
           <div class="w-16 h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 relative group">
-            <template v-if="q.slipImage">
+            <template v-if="q.paymentMethod === 'wallet'">
+               <div class="w-full h-full flex flex-col items-center justify-center bg-emerald-50 text-emerald-600 p-1 text-center text-[10px] leading-tight">
+                 <Wallet class="w-4 h-4 mb-0.5 opacity-70" />
+                 <b>ทำรายการ<br>ผ่าน<br>Wallet</b>
+               </div>
+            </template>           
+            <template v-else-if="q.slipImage">
               <img :src="q.slipImage" class="w-full h-full object-cover grayscale mix-blend-multiply opacity-50" />
               <div @click="viewSlip(q.slipImage)" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
                 <span class="text-xs text-white font-medium text-center">ดูสลิป<br>เต็ม</span>
@@ -208,9 +251,13 @@ const deleteProduct = (id) => {
           
           <div class="flex-grow">
             <div class="flex items-center gap-2">
-              <h3 class="font-bold text-slate-800">คิว #{{ q.queueNumber || q.id }} ({{ q.name }})</h3>
+              <h3 class="font-bold text-slate-800">คิว #{{ q.queueNumber || q.id }}</h3>
               <span v-if="q.status === 'approved'" class="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider">อนุมัติแล้ว</span>
               <span v-else class="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-xs font-semibold uppercase tracking-wider">ปฏิเสธ</span>
+            </div>
+            <div class="mt-1 flex flex-wrap gap-2 text-xs mb-1">
+               <span class="text-slate-500">𝗥𝗼𝗯𝗹𝗼𝘅: <b>{{ q.name || '-' }}</b></span>
+               <span class="text-slate-500">𝗧𝗶𝗸𝗧𝗼𝗸: <b>{{ q.tiktokName || '-' }}</b></span>
             </div>
             <div class="mt-2 text-sm text-slate-600 line-clamp-2">
                <template v-if="q.items && q.items.length > 0">
@@ -295,6 +342,39 @@ const deleteProduct = (id) => {
           <button @click="removeCategory(cat)" class="text-red-400 hover:text-red-600 transition-colors p-1 bg-white rounded-md shadow-sm border border-slate-100 hover:border-red-100">
              <X class="w-4 h-4" />
           </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Virtual Wallet Tab -->
+    <div v-if="activeTab === 'wallet'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+          <Wallet class="w-6 h-6 text-emerald-500" /> 
+          จัดการ Virtual Wallet (เติมเงิน / หักเงิน)
+        </h2>
+      </div>
+      
+      <div class="bg-emerald-50/50 border border-emerald-100 p-6 rounded-xl space-y-4 max-w-xl">
+        <p class="text-sm text-slate-600">คุณสามารถปรับยอดเงินในกระเป๋าลูกค้าได้โดยตรง หากต้องการหักเงินให้ใส่ตัวเลขติดลบ (เช่น -50)</p>
+        
+        <div class="space-y-4">
+           <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">UID ของลูกค้า (คัดลอกได้จากโปรไฟล์ลูกค้า)</label>
+              <input v-model="targetUid" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="วาง UID ที่นี่" />
+           </div>
+           <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">จำนวนหน่วย (บาท)</label>
+              <input v-model.number="adjustAmount" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="ช่องนี้ใส่เฉพาะตัวเลข" />
+           </div>
+           
+           <div v-if="adjustMessage" class="px-4 py-2 rounded-lg text-sm bg-slate-100 font-medium">
+             {{ adjustMessage }}
+           </div>
+           
+           <button @click="handleAdjustWallet" :disabled="isAdjusting" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-50 mt-2">
+             {{ isAdjusting ? 'กำลังดำเนินการ...' : 'ยืนยันการปรับยอดเงิน' }}
+           </button>
         </div>
       </div>
     </div>
