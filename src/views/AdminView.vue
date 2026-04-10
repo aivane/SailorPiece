@@ -239,6 +239,36 @@ const deleteProduct = async (id) => {
     uiStore.showAlert('ลบสินค้าสำเร็จ', 'success');
   }
 };
+const searchProductText = ref('');
+const filterProductCategory = ref('');
+
+const filteredProducts = computed(() => {
+  let list = products.value;
+  if (filterProductCategory.value) {
+    list = list.filter(p => p.category === filterProductCategory.value);
+  }
+  if (searchProductText.value.trim()) {
+    const term = searchProductText.value.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(term));
+  }
+  return list;
+});
+
+const quickSave = async (p) => {
+  const result = await shopStore.updateProduct(p.id, p, null);
+  if (result.success) {
+     uiStore.showAlert('บันทึกสำเร็จ', 'success');
+  } else {
+     uiStore.showAlert(result.message || 'บันทึกไม่สำเร็จ', 'error');
+  }
+};
+
+const duplicateProduct = (p) => {
+  editingProductId.value = null;
+  productForm.value = { ...p, name: p.name + ' (Copy)' };
+  imageRawFile.value = null;
+  isModalOpen.value = true;
+};
 </script>
 
 <template>
@@ -522,44 +552,67 @@ const deleteProduct = async (id) => {
 
     <!-- Product Management Tab -->
     <div v-if="activeTab === 'products'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
-      <div class="flex justify-between items-center">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลสินค้าในร้าน</h2>
-        <button @click="openAddModal" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm">
-          <Plus class="w-4 h-4" /> เพิ่มสินค้าใหม่
-        </button>
+        
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+          <!-- Filter Category -->
+          <select v-model="filterProductCategory" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none bg-white">
+             <option value="">ทั้งหมด (ทุกหมวดหมู่)</option>
+             <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+          </select>
+          <!-- Search Box -->
+          <div class="relative flex-grow sm:flex-none sm:w-48">
+            <input v-model="searchProductText" type="text" placeholder="ค้นหาสินค้า..." class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand outline-none" />
+            <Search class="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          </div>
+          <button @click="openAddModal" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-brand-dark transition-colors shadow-sm ml-auto">
+            <Plus class="w-4 h-4" /> เพิ่มสินค้า
+          </button>
+        </div>
       </div>
 
       <div class="overflow-x-auto rounded-xl border border-slate-100">
         <table class="w-full text-left text-sm whitespace-nowrap">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
-              <th class="px-4 py-3 font-medium">ชื่อสินค้า</th>
-              <th class="px-4 py-3 font-medium">หมวดหมู่</th>
-              <th class="px-4 py-3 font-medium">รูปแบบการขาย</th>
+              <th class="px-4 py-3 font-medium">สินค้า / หมวดหมู่</th>
+              <th class="px-4 py-3 font-medium">รูปแบบ</th>
               <th class="px-4 py-3 font-medium">ราคา / เรต</th>
-              <th class="px-4 py-3 font-medium">จำนวนที่มีโค้ด/สต๊อก</th>
-              <th class="px-4 py-3 font-medium text-right">จัดการ</th>
+              <th class="px-4 py-3 font-medium">สต๊อก</th>
+              <th class="px-4 py-3 font-medium text-right">แอคชั่น (บันทึกด่วน)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="p in products" :key="p.id" class="hover:bg-slate-50/50 transition-colors">
-              <td class="px-4 py-3 font-medium text-slate-800">{{ p.name }}</td>
-              <td class="px-4 py-3 text-slate-500">
-                <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">{{ p.category || 'Reroll' }}</span>
+            <tr v-for="p in filteredProducts" :key="p.id" class="hover:bg-slate-50/50 transition-colors">
+              <td class="px-4 py-3">
+                 <p class="font-bold text-slate-800">{{ p.name }} <span v-if="p.badge && p.badge !== 'none'" class="ml-1 text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded">{{ p.badge }}</span></p>
+                 <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs">{{ p.category || 'Reroll' }}</span>
               </td>
               <td class="px-4 py-3 text-slate-500 text-xs">
                 <span v-if="p.pricingType === 'rate'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">อิงเรต</span>
                 <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md">ฟิกราคา</span>
               </td>
               <td class="px-4 py-3 text-slate-600">
-                <span v-if="p.pricingType === 'rate'" class="text-brand font-medium">เรต {{ p.price }} ชิ้น/บาท</span>
-                <span v-else>{{ p.price }} บาท/ชิ้น</span>
+                 <div class="flex items-center gap-1">
+                    <input type="number" v-model.number="p.price" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm outline-brand focus:border-brand" />
+                    <span class="text-xs text-slate-400">{{ p.pricingType === 'rate' ? 'ชิ้น/฿' : '฿/ชิ้น' }}</span>
+                 </div>
               </td>
-              <td class="px-4 py-3 text-slate-600">{{ p.quantity }}</td>
-              <td class="px-4 py-3 text-right space-x-3">
-                <button @click="openEditModal(p)" class="text-brand hover:text-brand-dark font-medium transition-colors">แก้ไข</button>
-                <button @click="deleteProduct(p.id)" class="text-red-500 hover:text-red-700 font-medium transition-colors">ลบ</button>
+              <td class="px-4 py-3 text-slate-600">
+                <input type="number" v-model.number="p.quantity" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm outline-brand focus:border-brand" />
               </td>
+              <td class="px-4 py-3 text-right space-x-2">
+                <button @click="quickSave(p)" class="text-white bg-emerald-500 hover:bg-emerald-600 shadow-sm px-2 py-1 rounded text-xs font-semibold inline-flex items-center gap-1 transition-colors"><Check class="w-3 h-3"/>เซฟเลข</button>
+                <button @click="duplicateProduct(p)" class="text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded text-xs font-medium transition-colors">คัดลอก</button>
+                <div class="inline-flex gap-2 ml-2 pl-2 border-l border-slate-200">
+                   <button @click="openEditModal(p)" class="text-blue-500 hover:text-blue-700 font-medium text-xs transition-colors">แก้ไขเต็ม</button>
+                   <button @click="deleteProduct(p.id)" class="text-red-500 hover:text-red-700 font-medium text-xs transition-colors">ลบ</button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="filteredProducts.length === 0">
+               <td colspan="5" class="px-4 py-8 text-center text-slate-500">ไม่พบสินค้าในหมวดหมู่นี้ หรือคำค้นหานี้</td>
             </tr>
           </tbody>
         </table>
