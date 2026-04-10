@@ -1,13 +1,17 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter } from 'firebase/firestore';
 
 export const useShopStore = defineStore('shop', () => {
   const products = ref([]);
   const queues = ref([]);
   const cart = ref([]);
   const categories = ref(['Reroll', 'Melee', 'Sword', 'Chest', 'Summon', 'Other']);
+
+  const adminHistoryQueues = ref([]);
+  const hasMoreAdminHistory = ref(true);
+  let lastAdminDoc = null;
 
   const cartTotalBaht = computed(() => {
     return cart.value.reduce((sum, item) => sum + item.baht, 0);
@@ -37,8 +41,9 @@ export const useShopStore = defineStore('shop', () => {
       products.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     });
     
-    // Listen to queues
-    onSnapshot(collection(db, 'queues'), (snapshot) => {
+    // Listen to ACTIVE queues only
+    const activeQuery = query(collection(db, 'queues'), where('status', '==', 'waiting'));
+    onSnapshot(activeQuery, (snapshot) => {
       queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => b.timestamp - a.timestamp);
     });
 
@@ -59,6 +64,45 @@ export const useShopStore = defineStore('shop', () => {
     } catch (e) {
       console.error('Error updating categories:', e);
     }
+  };
+
+  const loadAdminHistory = async (reset = false) => {
+    if (reset) {
+       adminHistoryQueues.value = [];
+       lastAdminDoc = null;
+       hasMoreAdminHistory.value = true;
+    }
+    if (!hasMoreAdminHistory.value) return;
+
+    try {
+       let q = query(collection(db, 'queues'), where('status', 'in', ['approved', 'rejected']), orderBy('timestamp', 'desc'), limit(50));
+       if (lastAdminDoc) {
+          q = query(collection(db, 'queues'), where('status', 'in', ['approved', 'rejected']), orderBy('timestamp', 'desc'), startAfter(lastAdminDoc), limit(50));
+       }
+       const snapshot = await getDocs(q);
+       if (snapshot.empty) {
+          hasMoreAdminHistory.value = false;
+          return;
+       }
+       lastAdminDoc = snapshot.docs[snapshot.docs.length - 1];
+       const result = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+       adminHistoryQueues.value = [...adminHistoryQueues.value, ...result];
+       if (snapshot.docs.length < 50) hasMoreAdminHistory.value = false;
+    } catch(e) {
+       console.error("Error loading admin history:", e);
+    }
+  };
+
+  const fetchUserHistory = async (uid) => {
+     if (!uid) return [];
+     try {
+        const q = query(collection(db, 'queues'), where('uid', '==', uid), where('status', 'in', ['approved', 'rejected']), orderBy('timestamp', 'desc'));
+        const sn = await getDocs(q);
+        return sn.docs.map(d => ({id: d.id, ...d.data()}));
+     } catch(e) {
+        console.error("Error loading user history:", e);
+        return [];
+     }
   };
 
   const compressImage = (file) => {
@@ -290,6 +334,10 @@ export const useShopStore = defineStore('shop', () => {
     removeFromCart,
     clearCart,
     categories,
-    updateCategories
+    updateCategories,
+    adminHistoryQueues,
+    hasMoreAdminHistory,
+    loadAdminHistory,
+    fetchUserHistory
   };
 });

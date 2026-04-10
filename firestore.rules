@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  	
+    // Helper Functions
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'tpkj220646@gmail.com';
+    }
+    function isAuthenticated() {
+    	return request.auth != null;
+    }
+
+    match /users/{userId} {
+      // Anyone can read user data (needed for Admin table, though arguably should be restricted to admin.
+      // Since users can also search, keeping as is/auth)
+      allow read: if isAuthenticated();
+      // Users can only write their OWN profile, OR Admin can write any.
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && (
+        !request.resource.data.keys().hasAny(['virtualWallet']) || 
+        request.resource.data.virtualWallet >= 0 // Protect local wallet modifications (Client increment must not go sub-zero)
+      ));
+    }
+
+    match /products/{product} {
+      allow read: if true;
+      // Only Admin can add/edit products
+      allow write: if isAdmin() && (
+        !request.resource.data.keys().hasAll(['quantity', 'price']) ||
+        (request.resource.data.quantity >= 0 && request.resource.data.price >= 0)
+      );
+    }
+    
+    match /queues/{queue} {
+      // User can read queues for checking history, Admin can read to serve
+      allow read: if true; 
+      
+      // Clients can create/update queues, but we protect basic numbers 
+      allow write: if isAuthenticated() && (
+        isAdmin() || (
+        	!request.resource.data.keys().hasAny(['price']) || request.resource.data.price >= 0
+        )
+      );
+    }
+    
+    match /configs/{config} {
+    	// Used for categories
+    	allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

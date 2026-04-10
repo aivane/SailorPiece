@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Clock, CheckCircle2, AlertCircle, History } from 'lucide-vue-next';
 import { useShopStore } from '../stores/shop';
@@ -12,6 +12,21 @@ const authStore = useAuthStore();
 const { queues } = storeToRefs(shopStore);
 const { user } = storeToRefs(authStore);
 const queueId = ref(route.params.id || null);
+const userHistoryQueues = ref([]);
+
+const loadHistory = async () => {
+   if (user.value) {
+      userHistoryQueues.value = await shopStore.fetchUserHistory(user.value.uid);
+   }
+};
+
+onMounted(() => {
+   loadHistory();
+});
+
+watch(user, () => {
+   loadHistory();
+});
 
 const activeQueueId = computed(() => {
   if (queueId.value) return queueId.value;
@@ -37,12 +52,6 @@ const queueDetails = computed(() => {
     productName: q.product,
     submittedAt: q.time
   };
-});
-
-const userHistoryQueues = computed(() => {
-  if (!user.value) return [];
-  // Sort by latest first
-  return queues.value.filter(q => q.uid === user.value.uid && q.status !== 'waiting');
 });
 </script>
 

@@ -13,10 +13,17 @@ import { storeToRefs } from 'pinia';
 const shopStore = useShopStore();
 const authStore = useAuthStore();
 const uiStore = useUiStore();
-const { products, queues: currentQueues, categories } = storeToRefs(shopStore);
+const { products, queues: currentQueues, categories, adminHistoryQueues, hasMoreAdminHistory } = storeToRefs(shopStore);
 
 // Use 'users' tab instead of 'wallet'
 const activeTab = ref('queue');
+
+import { watch } from 'vue';
+watch(activeTab, (val) => {
+  if (val === 'history' && adminHistoryQueues.value.length === 0) {
+    shopStore.loadAdminHistory(true);
+  }
+});
 
 const allUsers = ref([]);
 let usersUnsubscribe = null;
@@ -109,7 +116,7 @@ const removeCategory = async (catToRemove) => {
 
 const waitingQueues = computed(() => currentQueues.value.filter(q => q.status === 'waiting'));
 const historyQueues = computed(() => {
-  let list = currentQueues.value.filter(q => q.status !== 'waiting');
+  let list = adminHistoryQueues.value;
   if (searchHistoryText.value.trim()) {
     const term = searchHistoryText.value.toLowerCase();
     list = list.filter(q => 
@@ -134,6 +141,46 @@ const approveQueue = async (id) => {
 const rejectQueue = async (id) => { 
   await shopStore.updateQueueStatus(id, 'rejected'); 
   uiStore.showAlert('ปฏิเสธคิวสำเร็จ', 'info');
+};
+
+const isFocusMode = ref(false);
+const focusIndex = ref(0);
+
+const focusedQueue = computed(() => {
+  if (waitingQueues.value.length === 0) return null;
+  if (focusIndex.value >= waitingQueues.value.length) {
+     focusIndex.value = 0;
+  }
+  return waitingQueues.value[focusIndex.value];
+});
+
+const skipFocus = () => {
+   if (waitingQueues.value.length === 0) return;
+   focusIndex.value = (focusIndex.value + 1) % waitingQueues.value.length;
+};
+
+const focusApproveQueue = async () => {
+   if (!focusedQueue.value) return;
+   if (await uiStore.showConfirm('คุณเทรดสินค้าในเกมเสร็จสิ้นและต้องการยืนยันคิวใช่หรือไม่?')) {
+      const currentId = focusedQueue.value.id;
+      const res = await shopStore.updateQueueStatus(currentId, 'approved');
+      if (res && !res.success) {
+         uiStore.showAlert(res.message, 'error');
+      } else {
+         uiStore.showAlert('อนุมัติสำเร็จ เลื่อนคิวถัดไป...', 'success');
+         // No need to increment focusIndex as the array length shifts down, so current focusIndex points to the NEXT item
+         if (focusIndex.value >= waitingQueues.value.length) focusIndex.value = 0;
+      }
+   }
+};
+
+const focusRejectQueue = async () => {
+   if (!focusedQueue.value) return;
+   if (await uiStore.showConfirm('ยืนยันที่จะปฏิเสธและปัดตกคิวนี้ใช่หรือไม่?')) {
+      await shopStore.updateQueueStatus(focusedQueue.value.id, 'rejected');
+      uiStore.showAlert('ปฏิเสธคิวสำเร็จ เลื่อนคิวถัดไป...', 'info');
+      if (focusIndex.value >= waitingQueues.value.length) focusIndex.value = 0;
+   }
 };
 
 const isModalOpen = ref(false);
@@ -242,11 +289,21 @@ const deleteProduct = async (id) => {
 
     <!-- Queue Management Tab -->
     <div v-if="activeTab === 'queue'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-         <h2 class="text-lg font-semibold text-slate-800">รายการรอยืนยันสลิป</h2>
-         <span class="text-brand font-bold bg-brand/10 px-3 py-1 rounded-full text-sm">{{ waitingQueues.length }} รายการ</span>
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+         <div class="flex items-center gap-3">
+             <h2 class="text-lg font-semibold text-slate-800">รายการรอยืนยันสลิป</h2>
+             <span class="text-brand font-bold bg-brand/10 px-3 py-1 rounded-full text-sm">{{ waitingQueues.length }} รายการ</span>
+         </div>
+         
+         <!-- View Switcher -->
+         <div class="flex bg-slate-100 p-1 rounded-lg">
+             <button @click="isFocusMode = false" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', !isFocusMode ? 'bg-white shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700']">ตารางรวม</button>
+             <button @click="isFocusMode = true" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', isFocusMode ? 'bg-white shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700']">Focus Mode (คิวต่อคิว)</button>
+         </div>
       </div>
-      <div class="divide-y divide-slate-100">
+      
+      <!-- List View -->
+      <div v-if="!isFocusMode" class="divide-y divide-slate-100">
         <div v-for="q in waitingQueues" :key="q.id" class="p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 hover:bg-slate-50 transition-colors">
           
           <!-- Slip Preview Box -->
@@ -307,6 +364,90 @@ const deleteProduct = async (id) => {
         <div v-if="waitingQueues.length === 0" class="p-8 text-center text-slate-500">
           ไม่พบรายการคำสั่งซื้อใหม่
         </div>
+      </div>
+
+      <!-- Focus Mode View -->
+      <div v-else class="p-4 sm:p-8 bg-slate-50 min-h-[400px] flex items-center justify-center">
+         <div v-if="focusedQueue" class="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+            <div class="p-4 bg-brand/5 border-b border-brand/10 flex justify-between items-center">
+               <span class="text-brand-dark font-bold">คิวปัจจุบันที่โฟกัส (#{{ focusedQueue.queueNumber || focusedQueue.id }})</span>
+               <span class="text-sm text-slate-500 font-medium">คิวที่ {{ focusIndex + 1 }} จาก {{ waitingQueues.length }}</span>
+            </div>
+            
+            <div class="p-6 sm:p-8 flex flex-col sm:flex-row gap-8">
+               <div class="w-full sm:w-1/2 flex flex-col items-center">
+                  <div class="w-full aspect-[3/4] bg-slate-100 rounded-xl overflow-hidden shadow-inner relative group border border-slate-200 mb-2">
+                    <template v-if="focusedQueue.paymentMethod === 'wallet'">
+                       <div class="w-full h-full flex flex-col items-center justify-center bg-emerald-50 text-emerald-600 p-4 text-center">
+                         <Wallet class="w-12 h-12 mb-2 opacity-70" />
+                         <b class="text-lg">ชำระผ่าน Wallet 100%</b>
+                       </div>
+                    </template>
+                    <template v-else-if="focusedQueue.slipImage">
+                      <img :src="focusedQueue.slipImage" class="w-full h-full object-cover" />
+                      <div @click="viewSlip(focusedQueue.slipImage)" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
+                        <span class="text-white font-medium flex items-center gap-2"><Search class="w-5 h-5"/> กดดูเต็มจอ</span>
+                      </div>
+                    </template>
+                    <div v-else class="w-full h-full flex items-center justify-center text-slate-400">ไม่มีรูปสลิป</div>
+                  </div>
+                  <p class="text-xs text-slate-400 font-mono text-center">อัปโหลดเมื่อ: {{ focusedQueue.time }}</p>
+               </div>
+               
+               <div class="w-full sm:w-1/2 flex flex-col justify-center">
+                   <h3 class="text-2xl font-black text-slate-800 mb-4 border-b pb-4 border-slate-100">ข้อมูลการเทรด</h3>
+                   <div class="space-y-4">
+                      <div>
+                         <p class="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">ชื่อตัวละคร Roblox</p>
+                         <p class="text-lg font-bold text-blue-700 bg-blue-50 py-1.5 px-3 rounded-lg border border-blue-100 break-all select-all">{{ focusedQueue.name || '-' }}</p>
+                      </div>
+                      <div>
+                         <p class="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">TikTok</p>
+                         <p class="text-md font-bold text-pink-700 bg-pink-50 py-1 px-3 rounded-lg border border-pink-100 break-all">{{ focusedQueue.tiktokName || '-' }}</p>
+                      </div>
+                      <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
+                         <p class="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider">รายการที่ต้องมอบ</p>
+                         <ul class="space-y-2">
+                           <template v-if="focusedQueue.items && focusedQueue.items.length > 0">
+                             <li v-for="(item, i) in focusedQueue.items" :key="i" class="flex justify-between items-start">
+                                <span class="font-medium text-slate-800">{{ item.product.name }}</span>
+                                <span class="font-black text-brand text-lg ml-2 whitespace-nowrap">x{{ item.pieces }}</span>
+                             </li>
+                           </template>
+                           <template v-else>
+                             <li class="flex justify-between items-start">
+                                <span class="font-medium text-slate-800">{{ focusedQueue.product }}</span>
+                                <span class="font-black text-brand text-lg ml-2 whitespace-nowrap">x{{ focusedQueue.receivedPieces }}</span>
+                             </li>
+                           </template>
+                         </ul>
+                      </div>
+                      <div class="flex justify-between items-center py-2 border-t border-slate-100 px-2">
+                         <span class="text-sm font-medium text-slate-500">ยอดชำระ:</span>
+                         <span class="text-xl font-black text-slate-800">{{ focusedQueue.price }} บาท</span>
+                      </div>
+                   </div>
+               </div>
+            </div>
+            
+            <div class="p-4 bg-slate-50 flex flex-col sm:flex-row gap-3 border-t border-slate-200">
+               <button @click="skipFocus" class="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all shadow-sm">
+                 ข้ามไปคิวถัดไปก่อน
+               </button>
+               <button @click="focusRejectQueue" class="sm:flex-none py-3 px-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-all shadow-sm">
+                 ปฏิเสธ
+               </button>
+               <button @click="focusApproveQueue" class="flex-1 py-3 px-4 bg-brand text-white font-black text-lg rounded-xl hover:bg-brand-dark transition-all shadow-md transform hover:-translate-y-0.5">
+                 🎉 เทรดเสร็จแล้ว (อนุมัติ)
+               </button>
+            </div>
+         </div>
+         
+         <div v-else class="text-center">
+            <CheckCircle2 class="w-16 h-16 text-green-400 mx-auto mb-4" />
+            <h3 class="text-xl font-bold text-slate-700">เยี่ยมมาก! ไม่มีคิวตกค้าง</h3>
+            <p class="text-slate-500 mt-2">คุณเคลียร์คิวทั้งหมดเสร็จเรียบร้อยแล้ว</p>
+         </div>
       </div>
     </div>
 
@@ -369,6 +510,13 @@ const deleteProduct = async (id) => {
         <div v-if="historyQueues.length === 0" class="p-8 text-center text-slate-500">
           ยังไม่มีประวัติการทำรายการ
         </div>
+      </div>
+      
+      <!-- Load More Button -->
+      <div v-if="hasMoreAdminHistory" class="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+         <button @click="shopStore.loadAdminHistory(false)" class="text-brand font-medium bg-white border border-slate-200 shadow-sm px-6 py-2 rounded-xl hover:bg-slate-100 transition-colors">
+            โหลดประวัติเก่าเพิ่มเติม...
+         </button>
       </div>
     </div>
 
