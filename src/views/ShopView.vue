@@ -5,11 +5,13 @@ import { useRouter } from 'vue-router';
 
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
+import { useUiStore } from '../stores/ui';
 import { storeToRefs } from 'pinia';
 
 const router = useRouter();
 const shopStore = useShopStore();
 const authStore = useAuthStore();
+const uiStore = useUiStore();
 const { products, cart, cartTotalBaht, categories: storeCategories } = storeToRefs(shopStore);
 const { user, userProfile } = storeToRefs(authStore);
 
@@ -66,7 +68,7 @@ const calculatedBaht = computed(() => {
 
 const openCheckout = (product) => {
   if (!user.value) {
-    alert('กรุณาเข้าสู่ระบบด้วย Google ก่อนทำการสั่งซื้อครับ');
+    uiStore.showAlert('กรุณาเข้าสู่ระบบด้วย Google ก่อนทำการสั่งซื้อครับ', 'error');
     authStore.loginWithGoogle();
     return;
   }
@@ -84,7 +86,7 @@ const closeAddModal = () => {
 const confirmAddToCart = () => {
   const amount = Number(purchaseQuantity.value) || 0;
   if (amount <= 0) {
-    alert('กรุณาระบุจำนวนชิ้นที่ต้องการ');
+    uiStore.showAlert('กรุณาระบุจำนวนชิ้นที่ต้องการ', 'warning');
     return;
   }
   
@@ -94,9 +96,9 @@ const confirmAddToCart = () => {
 
   if (totalAttemptedPieces > selectedProduct.value.quantity) {
     if (currentCartPieces > 0) {
-      alert(`สต๊อกสินค้าไม่พอครับ (คุณหยิบใส่ตะกร้าไว้แล้ว ${currentCartPieces} ชิ้น ปัจจุบันเหลือสต๊อก ${selectedProduct.value.quantity} ชิ้น)`);
+      uiStore.showAlert(`สต๊อกไม่พอครับ (คุณหยิบใส่ตะกร้าไว้แล้ว ${currentCartPieces} ปัจจุบันเหลือสต๊อก ${selectedProduct.value.quantity} ชิ้น)`, 'error');
     } else {
-      alert('สต๊อกสินค้าไม่พอสำหรับจำนวนที่คุณต้องการซื้อ');
+      uiStore.showAlert('สต๊อกสินค้าไม่พอสำหรับจำนวนที่คุณต้องการซื้อ', 'error');
     }
     return;
   }
@@ -107,7 +109,7 @@ const confirmAddToCart = () => {
 
 const openCartModal = () => {
   if (cart.value.length === 0) {
-    alert('ตะกร้าสินค้ายังว่างเปล่าครับ');
+    uiStore.showAlert('ตะกร้าสินค้ายังว่างเปล่าครับ', 'warning');
     return;
   }
   robloxName.value = userProfile.value?.robloxName || '';
@@ -134,16 +136,16 @@ const handleSlipUpload = (event) => {
 };
 const submitOrder = async () => {
   if (!robloxName.value) {
-    alert('กรุณากรอกชื่อ Roblox ให้ครบถ้วน');
+    uiStore.showAlert('กรุณากรอกชื่อ Roblox ให้ครบถ้วน', 'warning');
     return;
   }
   if (paymentMethod.value === 'slip' && !slipRawFile.value) {
-    alert('กรุณาแนบสลิปการโอนเงิน');
+    uiStore.showAlert('กรุณาแนบสลิปการโอนเงิน', 'warning');
     return;
   }
   if (paymentMethod.value === 'wallet') {
      if (!userProfile.value || userProfile.value.virtualWallet < cartTotalBaht.value) {
-        alert('ยอดเงินใน Virtual Wallet ของคุณมีไม่เพียงพอ');
+        uiStore.showAlert('ยอดเงินใน Virtual Wallet ของคุณมีไม่เพียงพอ', 'error');
         return;
      }
   }
@@ -152,7 +154,7 @@ const submitOrder = async () => {
   for (const item of cart.value) {
     const upToDateProduct = products.value.find(p => p.id === item.product.id);
     if (!upToDateProduct || item.pieces > upToDateProduct.quantity) {
-      alert(`ขออภัยครับ สินค้า "${item.product.name}" ตอนนี้เหลือสต๊อกเพียง ${upToDateProduct ? upToDateProduct.quantity : 0} ชิ้น กรุณาลบออกแล้วระบุจำนวนใหม่`);
+      uiStore.showAlert(`ขออภัยครับ สินค้า "${item.product.name}" ตอนนี้เหลือสต๊อกเพียง ${upToDateProduct ? upToDateProduct.quantity : 0} ชิ้น กรุณาลบออกแล้วระบุจำนวนใหม่`, 'error');
       return;
     }
   }
@@ -162,13 +164,13 @@ const submitOrder = async () => {
   if (paymentMethod.value === 'wallet') {
       const adjustRes = await authStore.adjustWallet(user.value.uid, -cartTotalBaht.value);
       if (!adjustRes.success) {
-          alert('เกิดข้อผิดพลาดในการตัดเงินจาก Wallet');
+          uiStore.showAlert('เกิดข้อผิดพลาดในการตัดเงินจาก Wallet: ' + adjustRes.message, 'error');
           isSubmitting.value = false;
           return;
       }
   }
   
-  const mockQueueId = await shopStore.addQueue({
+  const queueRes = await shopStore.addQueue({
     name: robloxName.value,
     tiktokName: userProfile.value?.tiktokName || '',
     paymentMethod: paymentMethod.value,
@@ -179,10 +181,11 @@ const submitOrder = async () => {
 
   isSubmitting.value = false;
   closeCartModal();
-  if (mockQueueId) {
-    router.push(`/queue/${mockQueueId}`);
+  if (queueRes && queueRes.success) {
+    uiStore.showAlert('สั่งซื้อสำเร็จ! รอรับคิวได้เลย', 'success');
+    router.push(`/queue/${queueRes.docId}`);
   } else {
-    alert('เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ');
+    uiStore.showAlert(queueRes?.message || 'เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ', 'error');
   }
 };
 </script>

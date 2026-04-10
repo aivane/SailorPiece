@@ -106,6 +106,9 @@ export const useShopStore = defineStore('shop', () => {
   };
 
   const addProduct = async (productData, imageFile) => {
+    if (!productData.name || typeof productData.price !== 'number' || productData.price < 0 || productData.quantity < 0) {
+       return { success: false, message: 'ข้อมูลราคาหรือจำนวนสินค้าไม่ถูกต้อง' };
+    }
     try {
       let imageUrl = productData.image; 
       if (imageFile) {
@@ -124,12 +127,17 @@ export const useShopStore = defineStore('shop', () => {
         category: productData.category || 'Reroll',
         badge: productData.badge || 'none'
       });
+      return { success: true };
     } catch (e) {
        console.error("Error adding product:", e);
+       return { success: false, message: 'แพลตฟอร์มขัดข้อง ' + e.message };
     }
   };
 
   const updateProduct = async (id, updatedData, imageFile) => {
+    if (!updatedData.name || typeof updatedData.price !== 'number' || updatedData.price < 0 || updatedData.quantity < 0) {
+       return { success: false, message: 'ข้อมูลราคาหรือจำนวนสินค้าไม่ถูกต้อง' };
+    }
     try {
       let imageUrl = updatedData.image;
       if (imageFile) {
@@ -141,8 +149,10 @@ export const useShopStore = defineStore('shop', () => {
         image: imageUrl,
         status: updatedData.quantity > 0 ? 'available' : 'out-of-stock'
       });
+      return { success: true };
     } catch (e) {
       console.error("Error updating product:", e);
+      return { success: false, message: 'แพลตฟอร์มขัดข้อง ' + e.message };
     }
   };
 
@@ -155,6 +165,19 @@ export const useShopStore = defineStore('shop', () => {
   };
 
   const addQueue = async (queueData, slipFile) => {
+    // Validate that shop items requested are within stock
+    if (queueData.items && queueData.items.length > 0) {
+       for (const item of queueData.items) {
+          const dbItem = products.value.find(p => p.id === item.product.id);
+          if (!dbItem || dbItem.quantity < item.pieces || item.pieces <= 0) {
+             return { success: false, docId: null, message: `สินค้า ${item.product.name} มีสต๊อกไม่พอ ณ ขณะนี้ หรือจำนวนไม่ถูกต้อง` };
+          }
+       }
+    }
+    if (typeof queueData.price !== 'number' || queueData.price < 0) {
+       return { success: false, docId: null, message: 'ยอดชำระโอนหรือจำนวนเรตถูกส่งมาไม่ถูกต้อง ขออภัย' };
+    }
+
     try {
       let slipUrl = '';
       if (slipFile) {
@@ -191,10 +214,10 @@ export const useShopStore = defineStore('shop', () => {
         timestamp: serverTimestamp(),
         time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.'
       });
-      return qDocRef.id;
+      return { success: true, docId: qDocRef.id };
     } catch (e) {
       console.error("Error adding queue:", e);
-      return null;
+      return { success: false, docId: null, message: e.message };
     }
   };
 

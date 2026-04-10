@@ -3,12 +3,14 @@ import { RouterView, RouterLink } from 'vue-router'
 import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { storeToRefs } from 'pinia'
+import GlobalUI from './components/GlobalUI.vue'
 
 const authStore = useAuthStore()
 const { user, isAdmin, loading } = storeToRefs(authStore)
 </script>
 
 <template>
+  <GlobalUI />
   <div class="min-h-screen flex flex-col bg-brand-light font-sans text-slate-800">
     <nav class="bg-white shadow-sm sticky top-0 z-50">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">

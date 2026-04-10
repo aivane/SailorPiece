@@ -4,6 +4,7 @@ import { auth, googleProvider, db } from '../firebase/config';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import router from '../router';
+import { useUiStore } from './ui';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
@@ -65,7 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error('Login Failed:', error);
-      alert('เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
+      useUiStore().showAlert('เข้าสู่ระบบไม่สำเร็จ: ' + error.message, 'error');
     }
   };
 
@@ -92,6 +93,9 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const adjustWallet = async (uid, amount) => {
+    if (!uid || typeof amount !== 'number' || isNaN(amount) || amount === 0) {
+      return { success: false, message: 'ข้อมูลระบุตัวตน หรือจำนวนหน่วยไม่ถูกต้อง' };
+    }
     try {
       const userRef = doc(db, 'users', uid);
       const docSnap = await getDoc(userRef);

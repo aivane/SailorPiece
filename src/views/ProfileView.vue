@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { useUiStore } from '../stores/ui';
 import { storeToRefs } from 'pinia';
 import { User, Wallet, Edit, Check, Link, Gamepad2, Smartphone, Save, Copy } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
+const uiStore = useUiStore();
 const { user, userProfile, loading } = storeToRefs(authStore);
 
 const isEditing = ref(false);
@@ -47,8 +49,9 @@ const saveProfile = async () => {
   try {
     await authStore.updateProfile(editForm.value.robloxName, editForm.value.tiktokName);
     isEditing.value = false;
+    uiStore.showAlert('บันทึกข้อมูลสำเร็จ', 'success');
   } catch (e) {
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    uiStore.showAlert('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
   } finally {
     isSaving.value = false;
   }

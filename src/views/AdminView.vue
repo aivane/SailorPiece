@@ -7,10 +7,12 @@ import { collection, onSnapshot } from 'firebase/firestore';
 
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
+import { useUiStore } from '../stores/ui';
 import { storeToRefs } from 'pinia';
 
 const shopStore = useShopStore();
 const authStore = useAuthStore();
+const uiStore = useUiStore();
 const { products, queues: currentQueues, categories } = storeToRefs(shopStore);
 
 // Use 'users' tab instead of 'wallet'
@@ -90,7 +92,7 @@ const addCategory = async () => {
   const name = newCategoryName.value.trim();
   if (!name) return;
   if (categories.value.includes(name)) {
-    alert('มีหมวดหมู่นี้อยู่แล้ว');
+    uiStore.showAlert('มีหมวดหมู่นี้อยู่แล้ว', 'warning');
     return;
   }
   const updatedCategories = [...categories.value, name];
@@ -99,7 +101,7 @@ const addCategory = async () => {
 };
 
 const removeCategory = async (catToRemove) => {
-  if (confirm(`คุณต้องการลบหมวดหมู่ "${catToRemove}" ใช่หรือไม่?`)) {
+  if (await uiStore.showConfirm(`คุณต้องการลบหมวดหมู่ "${catToRemove}" ใช่หรือไม่?`)) {
     const updatedCategories = categories.value.filter(cat => cat !== catToRemove);
     await shopStore.updateCategories(updatedCategories);
   }
@@ -158,18 +160,26 @@ const handleImageUpload = (event) => {
 
 const saveProduct = async () => {
   isSubmitting.value = true;
+  let result;
   if(editingProductId.value) {
-    await shopStore.updateProduct(editingProductId.value, productForm.value, imageRawFile.value);
+    result = await shopStore.updateProduct(editingProductId.value, productForm.value, imageRawFile.value);
   } else {
-    await shopStore.addProduct(productForm.value, imageRawFile.value);
+    result = await shopStore.addProduct(productForm.value, imageRawFile.value);
   }
   isSubmitting.value = false;
-  isModalOpen.value = false;
+  
+  if (result.success) {
+     uiStore.showAlert('บันทึกข้อมูลสินค้าสำเร็จ', 'success');
+     isModalOpen.value = false;
+  } else {
+     uiStore.showAlert(result.message || 'บันทึกไม่สำเร็จ', 'error');
+  }
 };
 
-const deleteProduct = (id) => {
-  if (confirm('คุณต้องการลบสินค้านี้ใช่หรือไม่?')) {
+const deleteProduct = async (id) => {
+  if (await uiStore.showConfirm('คุณต้องการลบสินค้านี้ใช่หรือไม่?')) {
     shopStore.deleteProduct(id);
+    uiStore.showAlert('ลบสินค้าสำเร็จ', 'success');
   }
 };
 </script>
