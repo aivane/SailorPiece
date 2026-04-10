@@ -208,6 +208,36 @@ export const useShopStore = defineStore('shop', () => {
     }
   };
 
+  const batchSyncProducts = async (updateItems, newItems) => {
+    try {
+      const batch = writeBatch(db);
+      
+      for (const item of updateItems) {
+         const pRef = doc(db, 'products', item.id);
+         batch.update(pRef, { quantity: item.quantity });
+      }
+
+      for (const item of newItems) {
+         const pRef = doc(collection(db, 'products'));
+         batch.set(pRef, {
+            name: item.name,
+            quantity: item.quantity,
+            price: 0,
+            image: '',
+            category: 'New Import',
+            pricingType: 'fixed',
+            badge: 'new'
+         });
+      }
+
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+       console.error("Batch error:", error);
+       return { success: false, message: error.message };
+    }
+  };
+
   const addQueue = async (queueData, slipFile) => {
     // Validate that shop items requested are within stock
     if (queueData.items && queueData.items.length > 0) {
@@ -324,6 +354,7 @@ export const useShopStore = defineStore('shop', () => {
     addProduct,
     updateProduct,
     deleteProduct,
+    batchSyncProducts,
     queues,
     addQueue,
     updateQueueStatus,

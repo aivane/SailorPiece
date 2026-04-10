@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database } from 'lucide-vue-next';
 
 import { db } from '../firebase/config';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -269,6 +269,70 @@ const duplicateProduct = (p) => {
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
+
+const isImportModalOpen = ref(false);
+const importText = ref('');
+const importUpdateItems = ref([]);
+const importNewItems = ref([]);
+const isImportAnalyzed = ref(false);
+const isImporting = ref(false);
+
+const openImportModal = () => {
+   importText.value = '';
+   importUpdateItems.value = [];
+   importNewItems.value = [];
+   isImportAnalyzed.value = false;
+   isImportModalOpen.value = true;
+};
+
+const analyzeImport = () => {
+   importUpdateItems.value = [];
+   importNewItems.value = [];
+   
+   const lines = importText.value.split('\n');
+   const regex = /^\s*(\d+)x\s+(.+)$/i;
+   
+   for (let line of lines) {
+      if (!line.trim()) continue;
+      const match = line.match(regex);
+      if (match) {
+         const qty = parseInt(match[1]);
+         let rawName = match[2].trim();
+         
+         const existingProduct = products.value.find(p => p.name.toLowerCase() === rawName.toLowerCase());
+         
+         if (existingProduct) {
+             importUpdateItems.value.push({ id: existingProduct.id, name: existingProduct.name, quantity: qty, oldQuantity: existingProduct.quantity });
+         } else {
+             importNewItems.value.push({ name: rawName, quantity: qty });
+         }
+      }
+   }
+   
+   isImportAnalyzed.value = true;
+};
+
+const confirmImport = async () => {
+   if (importUpdateItems.value.length === 0 && importNewItems.value.length === 0) return;
+   
+   isImporting.value = true;
+   if (importNewItems.value.length > 0 && !categories.value.includes('New Import')) {
+       await shopStore.updateCategories([...categories.value, 'New Import']);
+   }
+   const result = await shopStore.batchSyncProducts(importUpdateItems.value, importNewItems.value);
+   isImporting.value = false;
+   
+   if (result.success) {
+      uiStore.showAlert('นำเข้าสต๊อกสำเร็จ', 'success');
+      isImportModalOpen.value = false;
+      if (importNewItems.value.length > 0) {
+         filterProductCategory.value = 'New Import';
+      }
+   } else {
+      uiStore.showAlert(result.message || 'เกิดข้อผิดพลาด', 'error');
+   }
+};
+
 </script>
 
 <template>
@@ -566,7 +630,10 @@ const duplicateProduct = (p) => {
             <input v-model="searchProductText" type="text" placeholder="ค้นหาสินค้า..." class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand outline-none" />
             <Search class="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           </div>
-          <button @click="openAddModal" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-brand-dark transition-colors shadow-sm ml-auto">
+          <button @click="openImportModal" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-purple-700 transition-colors shadow-sm ml-auto">
+            <Database class="w-4 h-4" /> นำเข้าสต๊อก
+          </button>
+          <button @click="openAddModal" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-brand-dark transition-colors shadow-sm">
             <Plus class="w-4 h-4" /> เพิ่มสินค้า
           </button>
         </div>
@@ -818,6 +885,72 @@ const duplicateProduct = (p) => {
           <button @click="isModalOpen = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">ยกเลิก</button>
           <button @click="saveProduct" :disabled="isSubmitting" class="px-4 py-2 rounded-xl bg-brand text-white hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
              {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึก' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Import Modal -->
+    <div v-if="isImportModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isImportModalOpen = false"></div>
+      <div class="bg-white rounded-2xl w-full max-w-3xl relative z-10 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-purple-50">
+          <h2 class="text-lg font-semibold text-purple-800 flex items-center gap-2">
+            <Database class="w-5 h-5 text-purple-600" /> นำเข้าสต๊อกอัจฉริยะ (Bulk Import)
+          </h2>
+          <button @click="isImportModalOpen = false" class="text-slate-400 hover:text-slate-600 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-4">
+           <div v-if="!isImportAnalyzed">
+              <label class="block text-sm font-medium text-slate-700 mb-2">วางแพทเทิร์นข้อความ (เช่น "10x Adamantite")</label>
+              <textarea v-model="importText" rows="10" placeholder="วางข้อความที่ก๊อปปี้มาจากในเกมตรงนี้..." class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-purple-500 outline-none font-mono"></textarea>
+           </div>
+           
+           <div v-else class="space-y-6">
+              <div class="bg-blue-50 text-blue-800 p-4 rounded-xl text-sm border border-blue-100">
+                 รบกวนตรวจสอบข้อมูลก่อนยืนยัน! ระบบพบ <b>ของเก่า {{ importUpdateItems.length }} รายการ</b> และจะสร้าง <b>ของใหม่ {{ importNewItems.length }} รายการ</b>
+              </div>
+              
+              <div class="flex flex-col sm:flex-row gap-6">
+                 <!-- Update Column -->
+                 <div class="flex-1 space-y-2">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2 border-b pb-2"><Check class="w-4 h-4 text-emerald-500"/> ของเก่า (แทนที่สต๊อกเดิม)</h3>
+                    <div class="max-h-64 overflow-y-auto space-y-1">
+                       <div v-for="(item, i) in importUpdateItems" :key="i" class="text-sm py-1 border-b border-slate-50 flex justify-between">
+                          <span class="text-slate-600 break-all pr-2">{{ item.name }}</span>
+                          <span class="font-bold text-emerald-600 whitespace-nowrap">{{ item.oldQuantity }} ➔ {{ item.quantity }}</span>
+                       </div>
+                       <p v-if="importUpdateItems.length === 0" class="text-slate-400 text-sm italic">ไม่มีรายการอัปเดต</p>
+                    </div>
+                 </div>
+                 
+                 <!-- New Column -->
+                 <div class="flex-1 space-y-2">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2 border-b pb-2"><Plus class="w-4 h-4 text-purple-500"/> ของใหม่ (สร้างเพิ่ม)</h3>
+                    <div class="max-h-64 overflow-y-auto space-y-1">
+                       <div v-for="(item, i) in importNewItems" :key="i" class="text-sm py-1 border-b border-slate-50 flex justify-between">
+                          <span class="text-slate-600 break-all pr-2">{{ item.name }}</span>
+                          <span class="font-bold text-purple-600 whitespace-nowrap">+{{ item.quantity }}</span>
+                       </div>
+                       <p v-if="importNewItems.length === 0" class="text-slate-400 text-sm italic">ไม่มีรายการเพิ่มใหม่</p>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button v-if="isImportAnalyzed" @click="isImportAnalyzed = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors mr-auto">ซ่อนและแก้ข้อความใหม่</button>
+          
+          <button @click="isImportModalOpen = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">ยกเลิก</button>
+          
+          <button v-if="!isImportAnalyzed" @click="analyzeImport" class="px-4 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700 transition-colors">วิเคราะห์ข้อความ</button>
+          
+          <button v-else @click="confirmImport" :disabled="isImporting" class="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 font-bold">
+             {{ isImporting ? 'กำลังซิงค์...' : 'ยืนยันการนำเข้าสต๊อก' }}
           </button>
         </div>
       </div>
