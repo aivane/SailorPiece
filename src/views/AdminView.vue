@@ -185,7 +185,7 @@ const focusRejectQueue = async () => {
 
 const isModalOpen = ref(false);
 const editingProductId = ref(null);
-const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none' });
+const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [] });
 const imageRawFile = ref(null);
 const isSubmitting = ref(false);
 
@@ -195,14 +195,14 @@ const closeSlip = () => { viewingSlipUrl.value = null; };
 
 const openAddModal = () => {
   editingProductId.value = null;
-  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none' };
+  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [] };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
 
 const openEditModal = (product) => {
   editingProductId.value = product.id;
-  productForm.value = { ...product };
+  productForm.value = { ...product, recipeItems: product.recipeItems || [], isRecipe: product.isRecipe || false };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
@@ -241,9 +241,17 @@ const deleteProduct = async (id) => {
 };
 const searchProductText = ref('');
 const filterProductCategory = ref('');
+const productViewMode = ref('ready'); // 'ready' or 'draft'
 
 const filteredProducts = computed(() => {
   let list = products.value;
+  
+  if (productViewMode.value === 'ready') {
+    list = list.filter(p => p.image && p.price > 0);
+  } else {
+    list = list.filter(p => !p.image || p.price <= 0);
+  }
+
   if (filterProductCategory.value) {
     list = list.filter(p => p.category === filterProductCategory.value);
   }
@@ -265,9 +273,35 @@ const quickSave = async (p) => {
 
 const duplicateProduct = (p) => {
   editingProductId.value = null;
-  productForm.value = { ...p, name: p.name + ' (Copy)' };
+  productForm.value = { ...p, name: p.name + ' (Copy)', recipeItems: p.recipeItems ? [...p.recipeItems] : [], isRecipe: p.isRecipe || false };
   imageRawFile.value = null;
   isModalOpen.value = true;
+};
+
+const newRecipeItemId = ref('');
+const newRecipeItemPieces = ref(1);
+
+const addRecipeItem = () => {
+  if (!newRecipeItemId.value || newRecipeItemPieces.value <= 0) return;
+  const targetProd = products.value.find(p => p.id === newRecipeItemId.value);
+  if (!targetProd) return;
+  // avoid adding duplicate item, update instead
+  const existing = productForm.value.recipeItems.find(p => p.productId === targetProd.id);
+  if (existing) {
+     existing.pieces += newRecipeItemPieces.value;
+  } else {
+     productForm.value.recipeItems.push({
+        productId: targetProd.id,
+        name: targetProd.name,
+        pieces: newRecipeItemPieces.value
+     });
+  }
+  newRecipeItemId.value = '';
+  newRecipeItemPieces.value = 1;
+};
+
+const removeRecipeItem = (index) => {
+   productForm.value.recipeItems.splice(index, 1);
 };
 
 const isImportModalOpen = ref(false);
@@ -430,10 +464,17 @@ const confirmImport = async () => {
             </div>
             <div class="mt-2 space-y-1">
                <template v-if="q.items && q.items.length > 0">
-                 <p v-for="(item, i) in q.items" :key="i" class="text-sm text-slate-600">
-                    <span class="text-slate-400 mr-1">-</span> {{ item.product.name }} 
-                    <span class="text-brand font-medium ml-1">x{{ item.pieces }} ชิ้น</span>
-                 </p>
+                 <div v-for="(item, i) in q.items" :key="i" class="text-sm text-slate-600">
+                    <p>
+                      <span class="text-slate-400 mr-1">-</span> {{ item.product.name }} 
+                      <span class="text-brand font-medium ml-1">x{{ item.pieces }} ชิ้น</span>
+                    </p>
+                    <ul v-if="item.product.isRecipe && item.product.recipeItems" class="pl-4 mt-1 border-l-2 border-brand-light/50 ml-2 space-y-1">
+                      <li v-for="(req, ri) in item.product.recipeItems" :key="ri" class="text-xs text-slate-500">
+                        ↳ <span class="font-medium text-slate-700">{{ req.name }}</span> <span class="font-bold text-brand">x{{ req.pieces * item.pieces }}</span>
+                      </li>
+                    </ul>
+                 </div>
                </template>
                <template v-else>
                  <p class="text-sm text-slate-600">
@@ -503,9 +544,20 @@ const confirmImport = async () => {
                          <p class="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider">รายการที่ต้องมอบ</p>
                          <ul class="space-y-2">
                            <template v-if="focusedQueue.items && focusedQueue.items.length > 0">
-                             <li v-for="(item, i) in focusedQueue.items" :key="i" class="flex justify-between items-start">
-                                <span class="font-medium text-slate-800">{{ item.product.name }}</span>
-                                <span class="font-black text-brand text-lg ml-2 whitespace-nowrap">x{{ item.pieces }}</span>
+                             <li v-for="(item, i) in focusedQueue.items" :key="i" class="flex flex-col mb-3">
+                                <div class="flex justify-between items-start">
+                                   <span class="font-medium text-slate-800">{{ item.product.name }}</span>
+                                   <span class="font-black text-brand text-lg ml-2 whitespace-nowrap">x{{ item.pieces }}</span>
+                                </div>
+                                <div v-if="item.product.isRecipe && item.product.recipeItems" class="mt-2 bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
+                                   <p class="text-xs text-slate-500 font-medium mb-1.5 flex items-center gap-1.5"><List class="w-3.5 h-3.5"/> เตรียมวัตถุดิบและนำไปมอบดังนี้:</p>
+                                   <ul class="space-y-1">
+                                      <li v-for="(req, ri) in item.product.recipeItems" :key="ri" class="flex justify-between text-xs items-center">
+                                         <span class="text-slate-600">- {{ req.name }}</span>
+                                         <span class="font-bold text-brand bg-brand/5 px-1.5 py-0.5 rounded">x{{ req.pieces * item.pieces }}</span>
+                                      </li>
+                                   </ul>
+                                </div>
                              </li>
                            </template>
                            <template v-else>
@@ -616,10 +668,17 @@ const confirmImport = async () => {
 
     <!-- Product Management Tab -->
     <div v-if="activeTab === 'products'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลสินค้าในร้าน</h2>
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-slate-100">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลสินค้าในร้าน</h2>
+          <!-- Product View Toggle -->
+          <div class="flex bg-slate-100 p-1 rounded-lg mt-3 w-mc">
+            <button @click="productViewMode = 'ready'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'ready' ? 'bg-white shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700']">สินค้าเผยแพร่แล้ว</button>
+            <button @click="productViewMode = 'draft'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'draft' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-500 hover:text-slate-700']">ฉบับร่าง (รอแก้ไข)</button>
+          </div>
+        </div>
         
-        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
           <!-- Filter Category -->
           <select v-model="filterProductCategory" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none bg-white">
              <option value="">ทั้งหมด (ทุกหมวดหมู่)</option>
@@ -860,14 +919,47 @@ const confirmImport = async () => {
             <div class="flex-1">
               <label class="block text-sm font-medium text-slate-700 mb-1">
                 {{ productForm.pricingType === 'rate' ? 'เรต (ชิ้น ต่อ 1 บาท)' : 'ราคา (บาท ต่อ 1 ชิ้น)' }}
-              </label>
+          </label>
               <input v-model.number="productForm.price" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
             </div>
             <div class="flex-1">
-              <label class="block text-sm font-medium text-slate-700 mb-1">จำนวนสต๊อก</label>
-              <input v-model.number="productForm.quantity" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+              <label class="block text-sm font-medium text-slate-700 mb-1">จำนวนสต๊อก <span v-if="productForm.isRecipe" class="text-xs text-brand font-normal">(คำนวณอัตโนมัติ)</span></label>
+              <input v-model.number="productForm.quantity" type="number" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none" :class="productForm.isRecipe ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:border-brand'" :disabled="productForm.isRecipe" />
             </div>
           </div>
+          
+          <div class="space-y-4 border border-slate-200 rounded-xl p-4 bg-slate-50">
+             <label class="flex items-center gap-2 font-medium text-slate-700 cursor-pointer">
+                <input type="checkbox" v-model="productForm.isRecipe" class="w-4 h-4 text-brand rounded border-slate-300 focus:ring-brand" />
+                🛠️ กำหนดเป็นสินค้าสั่งคราฟท์ (ใช้ชิ้นส่วนวัตถุดิบ)
+             </label>
+             <div v-if="productForm.isRecipe" class="mt-3 pt-3 border-t border-slate-200">
+                <p class="text-xs text-slate-500 mb-3">เมื่อลูกค้าสั่งซื้อ ระบบจะทำการหักสต๊อกจากวัตถุดิบเหล่านี้แทน</p>
+                
+                <div class="flex flex-wrap gap-2 mb-3">
+                   <select v-model="newRecipeItemId" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm outline-none w-full min-w-[150px]">
+                      <option value="" disabled>เลือกวัตถุดิบ...</option>
+                      <option v-for="p in products.filter(x => !x.isRecipe && x.id !== editingProductId)" :key="p.id" :value="p.id">{{ p.name }} (เหลือ {{ p.quantity }})</option>
+                   </select>
+                   <input v-model.number="newRecipeItemPieces" type="number" min="1" class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm outline-none text-center" placeholder="จำนวน" />
+                   <button @click.prevent="addRecipeItem" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap hover:bg-slate-700 w-full sm:w-auto">เพิ่มส่วนผสม</button>
+                </div>
+                
+                <ul class="space-y-1">
+                   <li v-for="(req, i) in productForm.recipeItems" :key="i" class="flex justify-between items-center bg-white border border-slate-100 px-3 py-2 rounded text-sm font-medium text-slate-700 shadow-sm">
+                      <span>{{ req.name }}</span>
+                      <div class="flex items-center gap-3">
+                         <span class="text-brand font-bold">x{{ req.pieces }}</span>
+                         <button @click.prevent="removeRecipeItem(i)" class="text-red-400 hover:text-red-600"><X class="w-4 h-4"/></button>
+                      </div>
+                   </li>
+                </ul>
+                <div v-if="!productForm.recipeItems || productForm.recipeItems.length === 0" class="text-xs text-slate-400 italic text-center py-2">
+                   ยังไม่ได้เพิ่มสูตรวัตถุดิบ
+                </div>
+             </div>
+          </div>
+
           <div class="space-y-2">
             <label class="block text-sm font-medium text-slate-700">รูปภาพสินค้า</label>
             <div class="flex items-center gap-4">

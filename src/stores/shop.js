@@ -4,7 +4,27 @@ import { db } from '../firebase/config';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter } from 'firebase/firestore';
 
 export const useShopStore = defineStore('shop', () => {
-  const products = ref([]);
+  const rawProducts = ref([]);
+  const products = computed(() => {
+     return rawProducts.value.map(p => {
+        if (p.isRecipe && p.recipeItems && p.recipeItems.length > 0) {
+           let limit = Infinity;
+           for (const req of p.recipeItems) {
+              const ing = rawProducts.value.find(rp => rp.id === req.productId);
+              if (!ing) {
+                 limit = 0; 
+                 break;
+              }
+              const possible = Math.floor(ing.quantity / req.pieces);
+              if (possible < limit) limit = possible;
+           }
+           if (limit === Infinity) limit = 0;
+           return { ...p, quantity: limit, status: limit > 0 ? 'available' : 'out-of-stock' };
+        }
+        return p;
+     });
+  });
+
   const queues = ref([]);
   const cart = ref([]);
   const categories = ref(['Reroll', 'Melee', 'Sword', 'Chest', 'Summon', 'Other']);
@@ -38,7 +58,7 @@ export const useShopStore = defineStore('shop', () => {
   const initShop = () => {
     // Listen to products
     onSnapshot(collection(db, 'products'), (snapshot) => {
-      products.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      rawProducts.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     });
     
     // Listen to ACTIVE queues only
@@ -169,7 +189,9 @@ export const useShopStore = defineStore('shop', () => {
         status: productData.quantity > 0 ? 'available' : 'out-of-stock',
         image: imageUrl || '',
         category: productData.category || 'Reroll',
-        badge: productData.badge || 'none'
+        badge: productData.badge || 'none',
+        isRecipe: productData.isRecipe || false,
+        recipeItems: productData.recipeItems || []
       });
       return { success: true };
     } catch (e) {
@@ -241,11 +263,24 @@ export const useShopStore = defineStore('shop', () => {
   const addQueue = async (queueData, slipFile) => {
     // Validate that shop items requested are within stock
     if (queueData.items && queueData.items.length > 0) {
+       const deductMap = {};
        for (const item of queueData.items) {
-          const dbItem = products.value.find(p => p.id === item.product.id);
-          if (!dbItem || dbItem.quantity < item.pieces || item.pieces <= 0) {
-             return { success: false, docId: null, message: `สินค้า ${item.product.name} มีสต๊อกไม่พอ ณ ขณะนี้ หรือจำนวนไม่ถูกต้อง` };
+          if (item.product.isRecipe && item.product.recipeItems) {
+              for (const req of item.product.recipeItems) {
+                  if (!deductMap[req.productId]) deductMap[req.productId] = { pieces: 0, name: req.name };
+                  deductMap[req.productId].pieces += req.pieces * item.pieces;
+              }
+          } else {
+              if (!deductMap[item.product.id]) deductMap[item.product.id] = { pieces: 0, name: item.product.name };
+              deductMap[item.product.id].pieces += item.pieces;
           }
+       }
+       for (const pid of Object.keys(deductMap)) {
+           const needed = deductMap[pid].pieces;
+           const dbItem = rawProducts.value.find(p => p.id === pid);
+           if (!dbItem || dbItem.quantity < needed || needed <= 0) {
+              return { success: false, docId: null, message: `วัตถุดิบ/สินค้า ${deductMap[pid].name} มีสต๊อกไม่พอ ณ ขณะนี้ (ต้องการ ${needed})` };
+           }
        }
     }
     if (typeof queueData.price !== 'number' || queueData.price < 0) {
@@ -305,25 +340,40 @@ export const useShopStore = defineStore('shop', () => {
          if (queueItem) {
              const batch = writeBatch(db);
              
-             // Deduct from NEW items array
+             // Deduct from NEW items array using Deduct Map
              if (queueItem.items && queueItem.items.length > 0) {
+                 const deductMap = {};
                  for (const item of queueItem.items) {
-                    const targetProduct = products.value.find(p => p.id === item.product.id);
-                    if (!targetProduct || targetProduct.quantity < item.pieces) {
-                       return { success: false, message: `ไม่สามารถอนุมัติได้ สินค้า ${item.product.name} มีสต๊อกไม่พอ ณ ปัจจุบัน` };
-                    }
-                    batch.update(doc(db, 'products', targetProduct.id), {
-                        quantity: targetProduct.quantity - item.pieces,
-                        status: (targetProduct.quantity - item.pieces) > 0 ? 'available' : 'out-of-stock'
-                    });
+                     if (item.product.isRecipe && item.product.recipeItems) {
+                         for (const req of item.product.recipeItems) {
+                             if (!deductMap[req.productId]) deductMap[req.productId] = 0;
+                             deductMap[req.productId] += req.pieces * item.pieces;
+                         }
+                     } else {
+                         if (!deductMap[item.product.id]) deductMap[item.product.id] = 0;
+                         deductMap[item.product.id] += item.pieces;
+                     }
                  }
+                 
+                 for (const pid of Object.keys(deductMap)) {
+                     const deductPieces = deductMap[pid];
+                     const targetProduct = rawProducts.value.find(p => p.id === pid);
+                     if (!targetProduct || targetProduct.quantity < deductPieces) {
+                         return { success: false, message: `สต๊อกไอเทมย่อย ${targetProduct?targetProduct.name:'(ลบไปแล้ว)'} ไม่พอตัดจ่าย กรุณาเช็คคลัง`};
+                     }
+                     batch.update(doc(db, 'products', targetProduct.id), {
+                         quantity: targetProduct.quantity - deductPieces,
+                         status: (targetProduct.quantity - deductPieces) > 0 ? 'available' : 'out-of-stock'
+                     });
+                 }
+                 
                  batch.update(qRef, { status: newStatus });
                  await batch.commit();
                  return { success: true };
              } 
              // Deduct using OLD single-product structure
              else {
-                 const targetProduct = products.value.find(p => p.name === queueItem.product);
+                 const targetProduct = rawProducts.value.find(p => p.name === queueItem.product);
                  const finalDeduct = queueItem.receivedPieces || 0;
                  if (!targetProduct || targetProduct.quantity < finalDeduct) {
                     return { success: false, message: `ไม่สามารถอนุมัติได้ สินค้า ${queueItem.product} มีสต๊อกไม่พอ ณ ปัจจุบัน` };

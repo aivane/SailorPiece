@@ -1,12 +1,12 @@
 <script setup>
 import { RouterView, RouterLink } from 'vue-router'
-import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList } from 'lucide-vue-next'
+import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList, Wallet } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { storeToRefs } from 'pinia'
 import GlobalUI from './components/GlobalUI.vue'
 
 const authStore = useAuthStore()
-const { user, isAdmin, loading } = storeToRefs(authStore)
+const { user, userProfile, isAdmin, loading } = storeToRefs(authStore)
 </script>
 
 <template>
@@ -38,7 +38,13 @@ const { user, isAdmin, loading } = storeToRefs(authStore)
             <div class="h-6 w-px bg-slate-200 mx-2"></div>
             
             <div v-if="loading" class="w-20 h-8 bg-slate-100 rounded animate-pulse"></div>
-            <div v-else-if="user" class="flex items-center gap-3">
+            <div v-else-if="user" class="flex items-center gap-2 sm:gap-3">
+              
+              <RouterLink v-if="userProfile && userProfile.virtualWallet !== undefined" to="/profile" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors rounded-lg border border-emerald-100/50">
+                 <Wallet class="w-4 h-4" />
+                 <span class="text-sm font-bold">{{ Number(userProfile.virtualWallet).toLocaleString('th-TH') }}฿</span>
+              </RouterLink>
+              
               <RouterLink to="/profile" class="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-slate-200">
                 <img :src="user.photoURL" class="w-8 h-8 rounded-full border border-slate-200" />
                 <span class="text-sm font-medium hidden sm:block text-slate-700">{{ user.displayName?.split(' ')[0] }}</span>

@@ -240,6 +240,10 @@ const submitOrder = async () => {
         <h3 class="text-lg font-semibold text-brand-dark">{{ product.name }}</h3>
         <p class="text-sm text-slate-500 mt-1 line-clamp-2 flex-grow">{{ product.description }}</p>
         
+        <div v-if="product.isRecipe && product.recipeItems" class="mt-3 text-[11px] bg-white text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm leading-relaxed">
+          <span class="font-bold text-amber-600">🛠️ เซ็ตคราฟท์:</span> จะได้รับวัตถุดิบ <span v-for="(req, idx) in product.recipeItems" :key="req.productId">{{req.name}} (x{{req.pieces}})<template v-if="idx < product.recipeItems.length - 1">, </template></span>
+        </div>
+        
         <div class="mt-4 flex items-center justify-between">
           <div>
             <div v-if="product.pricingType === 'rate'" class="text-lg font-bold text-brand">เรต {{ formatPrice(product.price) }} ชิ้น/บาท</div>
@@ -283,11 +287,22 @@ const submitOrder = async () => {
         <div class="p-6 overflow-y-auto w-full font-sans">
           <!-- Product Summary -->
           <div class="flex gap-4 mb-6 pb-6 border-b border-slate-100">
-            <img :src="selectedProduct?.image" class="w-16 h-16 rounded-lg object-cover" />
+            <img :src="selectedProduct?.image" class="w-16 h-16 rounded-lg object-cover bg-slate-100" />
             <div>
               <h3 class="font-medium text-slate-800">{{ selectedProduct?.name }}</h3>
               <p class="text-brand font-bold mt-1">{{ formatPrice(selectedProduct?.price) }}</p>
             </div>
+          </div>
+
+          <div v-if="selectedProduct?.isRecipe && selectedProduct?.recipeItems" class="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
+             <p class="text-sm text-amber-800 font-bold mb-1 flex items-center gap-1.5">🛠️ สินค้านี้เป็น "เซ็ตวัตถุดิบ"</p>
+             <p class="text-xs text-amber-700/80 mb-3">เมื่อสั่งซื้อ 1 ชิ้น คุณจะได้รับชิ้นส่วนดังต่อไปนี้เพื่อนำไปคราฟท์ต่อในเกม</p>
+             <ul class="space-y-1.5">
+                <li v-for="req in selectedProduct.recipeItems" :key="req.productId" class="text-xs text-amber-800 flex justify-between bg-amber-100/50 px-2 py-1 rounded">
+                   <span>- {{ req.name }}</span>
+                   <span class="font-bold">x{{ req.pieces }}</span>
+                </li>
+             </ul>
           </div>
 
           <!-- Form -->
