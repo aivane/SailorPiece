@@ -10,10 +10,10 @@ import { storeToRefs } from 'pinia';
 const router = useRouter();
 const shopStore = useShopStore();
 const authStore = useAuthStore();
-const { products, cart, cartTotalBaht } = storeToRefs(shopStore);
+const { products, cart, cartTotalBaht, categories: storeCategories } = storeToRefs(shopStore);
 const { user } = storeToRefs(authStore);
 
-const categories = ['ทั้งหมด', 'Reroll', 'Melee', 'Sword', 'Crate', 'Summon'];
+const categories = computed(() => ['ทั้งหมด', ...storeCategories.value]);
 const activeCategory = ref('ทั้งหมด');
 const searchQuery = ref('');
 
@@ -198,10 +198,14 @@ const submitOrder = async () => {
     </div>
 
     <!-- Product Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
       <div v-for="product in filteredProducts" :key="product.id" class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 flex flex-col group">
         <div class="aspect-square w-full bg-slate-50 rounded-xl mb-4 overflow-hidden relative">
-          <img :src="product.image" :alt="product.name" class="w-full h-full object-cover transition-transform group-hover:scale-105" />
+          <img :src="product.image" :alt="product.name" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 contrast-105 saturate-105 [image-rendering:-webkit-optimize-contrast]" />
+          <!-- Badges -->
+          <div v-if="product.badge === 'new'" class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm z-10 animate-pulse border border-red-400">NEW!</div>
+          <div v-if="product.badge === 'promotion'" class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm z-10 border border-yellow-300">PROMO🔥</div>
+          
           <div v-if="product.status === 'out-of-stock'" class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px]">
             <span class="bg-slate-800 text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm">สินค้าหมด</span>
           </div>

@@ -1,15 +1,35 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers } from 'lucide-vue-next';
 
 import { useShopStore } from '../stores/shop';
 import { storeToRefs } from 'pinia';
 
 const shopStore = useShopStore();
-const { products, queues: currentQueues } = storeToRefs(shopStore);
+const { products, queues: currentQueues, categories } = storeToRefs(shopStore);
 
-// View State: 'products' | 'queue' | 'history'
+// View State: 'products' | 'queue' | 'history' | 'categories'
 const activeTab = ref('queue');
+
+const newCategoryName = ref('');
+const addCategory = async () => {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  if (categories.value.includes(name)) {
+    alert('มีหมวดหมู่นี้อยู่แล้ว');
+    return;
+  }
+  const updatedCategories = [...categories.value, name];
+  await shopStore.updateCategories(updatedCategories);
+  newCategoryName.value = '';
+};
+
+const removeCategory = async (catToRemove) => {
+  if (confirm(`คุณต้องการลบหมวดหมู่ "${catToRemove}" ใช่หรือไม่?`)) {
+    const updatedCategories = categories.value.filter(cat => cat !== catToRemove);
+    await shopStore.updateCategories(updatedCategories);
+  }
+};
 
 const waitingQueues = computed(() => currentQueues.value.filter(q => q.status === 'waiting'));
 const historyQueues = computed(() => currentQueues.value.filter(q => q.status !== 'waiting'));
@@ -19,7 +39,7 @@ const rejectQueue = (id) => { shopStore.updateQueueStatus(id, 'rejected'); };
 
 const isModalOpen = ref(false);
 const editingProductId = ref(null);
-const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed' });
+const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none' });
 const imageRawFile = ref(null);
 const isSubmitting = ref(false);
 
@@ -29,7 +49,7 @@ const closeSlip = () => { viewingSlipUrl.value = null; };
 
 const openAddModal = () => {
   editingProductId.value = null;
-  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll' };
+  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none' };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
@@ -97,6 +117,12 @@ const deleteProduct = (id) => {
           :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Package class="w-4 h-4" /> จัดการสินค้า
+        </button>
+        <button 
+          @click="activeTab = 'categories'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <Layers class="w-4 h-4" /> จัดการหมวดหมู่
         </button>
       </div>
     </div>
@@ -250,6 +276,29 @@ const deleteProduct = (id) => {
       </div>
     </div>
 
+    <!-- Categories Management Tab -->
+    <div v-if="activeTab === 'categories'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลหมวดหมู่สินค้า</h2>
+      </div>
+      
+      <div class="flex gap-2 w-full max-w-md">
+        <input v-model="newCategoryName" type="text" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่ที่นี่..." class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" @keyup.enter="addCategory" />
+        <button @click="addCategory" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm whitespace-nowrap">
+          <Plus class="w-4 h-4" /> เพิ่มหมวดหมู่
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div v-for="cat in categories" :key="cat" class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-brand/30 transition-colors">
+          <span class="font-medium text-slate-700 text-sm">{{ cat }}</span>
+          <button @click="removeCategory(cat)" class="text-red-400 hover:text-red-600 transition-colors p-1 bg-white rounded-md shadow-sm border border-slate-100 hover:border-red-100">
+             <X class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Product Modal -->
     <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isModalOpen = false"></div>
@@ -269,11 +318,15 @@ const deleteProduct = (id) => {
             <div class="w-full sm:w-1/3 flex-shrink-0">
               <label class="block text-sm font-medium text-slate-700 mb-1">หมวดหมู่</label>
               <select v-model="productForm.category" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none bg-white">
-                <option value="Reroll">Reroll</option>
-                <option value="Melee">Melee</option>
-                <option value="Sword">Sword</option>
-                <option value="Crate">Crate</option>
-                <option value="Summon">Summon</option>
+                <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+              </select>
+            </div>
+            <div class="w-full sm:w-1/4 flex-shrink-0">
+              <label class="block text-sm font-medium text-slate-700 mb-1">ป้ายกำกับ</label>
+              <select v-model="productForm.badge" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none bg-white">
+                <option value="none">ไม่มี</option>
+                <option value="new">New</option>
+                <option value="promotion">Promotion</option>
               </select>
             </div>
           </div>

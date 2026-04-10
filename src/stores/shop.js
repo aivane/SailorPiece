@@ -7,6 +7,7 @@ export const useShopStore = defineStore('shop', () => {
   const products = ref([]);
   const queues = ref([]);
   const cart = ref([]);
+  const categories = ref(['Reroll', 'Melee', 'Sword', 'Chest', 'Summon', 'Other']);
 
   const cartTotalBaht = computed(() => {
     return cart.value.reduce((sum, item) => sum + item.baht, 0);
@@ -40,6 +41,24 @@ export const useShopStore = defineStore('shop', () => {
     onSnapshot(collection(db, 'queues'), (snapshot) => {
       queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => b.timestamp - a.timestamp);
     });
+
+    // Listen to categories
+    onSnapshot(doc(db, 'configs', 'shop'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().categories) {
+        categories.value = docSnap.data().categories;
+      } else {
+        // Initialize if not exists
+        setDoc(doc(db, 'configs', 'shop'), { categories: categories.value }, { merge: true });
+      }
+    });
+  };
+
+  const updateCategories = async (newCategories) => {
+    try {
+      await setDoc(doc(db, 'configs', 'shop'), { categories: newCategories }, { merge: true });
+    } catch (e) {
+      console.error('Error updating categories:', e);
+    }
   };
 
   const compressImage = (file) => {
@@ -101,7 +120,9 @@ export const useShopStore = defineStore('shop', () => {
         quantity: productData.quantity,
         pricingType: productData.pricingType || 'fixed',
         status: productData.quantity > 0 ? 'available' : 'out-of-stock',
-        image: imageUrl || ''
+        image: imageUrl || '',
+        category: productData.category || 'Reroll',
+        badge: productData.badge || 'none'
       });
     } catch (e) {
        console.error("Error adding product:", e);
@@ -236,6 +257,8 @@ export const useShopStore = defineStore('shop', () => {
     cartTotalBaht,
     addToCart,
     removeFromCart,
-    clearCart
+    clearCart,
+    categories,
+    updateCategories
   };
 });
