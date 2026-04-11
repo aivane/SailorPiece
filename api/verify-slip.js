@@ -45,8 +45,8 @@ export default async function handler(req, res) {
     formData.append('files', blob, 'slip.jpg');
 
     // อ่าน API Key จาก Environment Vars หากไม่ได้ใส่ ให้ใช้ตัวที่ลูกค้าให้มาเป็น Default
-    const SLIPOK_ENDPOINT = process.env.SLIPOK_ENDPOINT || 'https://api.slipok.com/api/line/apikey/64330';
-    const SLIPOK_API_KEY = process.env.SLIPOK_API_KEY || 'SLIPOK4GLTBN6';
+    const SLIPOK_ENDPOINT = process.env.SLIPOK_ENDPOINT || 'https://api.slipok.com/api/line/apikey/64332';
+    const SLIPOK_API_KEY = process.env.SLIPOK_API_KEY || 'SLIPOKY7CM3G9';
 
     // 3. ยิงไปหา SlipOK API
     const response = await fetch(SLIPOK_ENDPOINT, {
