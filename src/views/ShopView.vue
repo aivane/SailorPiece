@@ -47,12 +47,45 @@ const formatPrice = (price) => {
 const selectedProduct = ref(null);
 const isAddModalOpen = ref(false);
 const isCartModalOpen = ref(false);
-const slipImage = ref(null);
-const slipRawFile = ref(null);
 const robloxName = ref('');
-const paymentMethod = ref('slip'); // 'slip' or 'wallet'
+const paymentMethod = ref('wallet'); // Hardcoded to wallet
 const purchaseQuantity = ref('');
+const purchaseBahtInput = ref('');
 const isSubmitting = ref(false);
+
+const onUpdatePieces = () => {
+  const pieces = Number(purchaseQuantity.value) || 0;
+  if (!selectedProduct.value) {
+    purchaseBahtInput.value = '';
+    return;
+  }
+  if (pieces === 0) {
+    purchaseBahtInput.value = '';
+    return;
+  }
+  if (selectedProduct.value.pricingType === 'rate') {
+    purchaseBahtInput.value = pieces / selectedProduct.value.price;
+  } else {
+    purchaseBahtInput.value = pieces * selectedProduct.value.price;
+  }
+};
+
+const onUpdateBaht = () => {
+  const baht = Number(purchaseBahtInput.value) || 0;
+  if (!selectedProduct.value) {
+    purchaseQuantity.value = '';
+    return;
+  }
+  if (baht === 0) {
+    purchaseQuantity.value = '';
+    return;
+  }
+  if (selectedProduct.value.pricingType === 'rate') {
+    purchaseQuantity.value = Math.floor(baht * selectedProduct.value.price);
+  } else {
+    purchaseQuantity.value = Math.floor(baht / selectedProduct.value.price);
+  }
+};
 
 const calculatedPieces = computed(() => {
   return Number(purchaseQuantity.value) || 0;
@@ -75,6 +108,7 @@ const openCheckout = (product) => {
   }
   selectedProduct.value = product;
   purchaseQuantity.value = '';
+  purchaseBahtInput.value = '';
   isAddModalOpen.value = true;
 };
 
@@ -82,6 +116,7 @@ const closeAddModal = () => {
   isAddModalOpen.value = false;
   selectedProduct.value = null;
   purchaseQuantity.value = '';
+  purchaseBahtInput.value = '';
 };
 
 const confirmAddToCart = () => {
@@ -114,41 +149,23 @@ const openCartModal = () => {
     return;
   }
   robloxName.value = userProfile.value?.robloxName || '';
-  paymentMethod.value = 'slip';
-  slipImage.value = null;
-  slipRawFile.value = null;
+  paymentMethod.value = 'wallet';
   isCartModalOpen.value = true;
 };
 
 const closeCartModal = () => {
   isCartModalOpen.value = false;
   robloxName.value = '';
-  slipImage.value = null;
-  slipRawFile.value = null;
   isSubmitting.value = false;
-};
-
-const handleSlipUpload = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    slipRawFile.value = file;
-    slipImage.value = URL.createObjectURL(file);
-  }
 };
 const submitOrder = async () => {
   if (!robloxName.value) {
     uiStore.showAlert('กรุณากรอกชื่อ Roblox ให้ครบถ้วน', 'warning');
     return;
   }
-  if (paymentMethod.value === 'slip' && !slipRawFile.value) {
-    uiStore.showAlert('กรุณาแนบสลิปการโอนเงิน', 'warning');
-    return;
-  }
-  if (paymentMethod.value === 'wallet') {
-     if (!userProfile.value || userProfile.value.virtualWallet < cartTotalBaht.value) {
-        uiStore.showAlert('ยอดเงินใน Virtual Wallet ของคุณมีไม่เพียงพอ', 'error');
-        return;
-     }
+  if (!userProfile.value || userProfile.value.virtualWallet < cartTotalBaht.value) {
+     uiStore.showAlert('ยอดเงินใน Virtual Wallet ของคุณมีไม่เพียงพอ กรุณาเติมเงินก่อนสั่งซื้อครับ', 'error');
+     return;
   }
   
   // หายนะเคส (Worst case scenario): ระหว่างลูกค้ากำลังจะจ่ายเงิน มีคนอื่นเหมาสต๊อกไปแล้ว!
@@ -162,23 +179,21 @@ const submitOrder = async () => {
   
   isSubmitting.value = true;
 
-  if (paymentMethod.value === 'wallet') {
-      const adjustRes = await authStore.adjustWallet(user.value.uid, -cartTotalBaht.value);
-      if (!adjustRes.success) {
-          uiStore.showAlert('เกิดข้อผิดพลาดในการตัดเงินจาก Wallet: ' + adjustRes.message, 'error');
-          isSubmitting.value = false;
-          return;
-      }
+  const adjustRes = await authStore.adjustWallet(user.value.uid, -cartTotalBaht.value);
+  if (!adjustRes.success) {
+      uiStore.showAlert('เกิดข้อผิดพลาดในการตัดเงินจาก Wallet: ' + adjustRes.message, 'error');
+      isSubmitting.value = false;
+      return;
   }
   
   const queueRes = await shopStore.addQueue({
     name: robloxName.value,
     tiktokName: userProfile.value?.tiktokName || '',
-    paymentMethod: paymentMethod.value,
+    paymentMethod: 'wallet',
     uid: user.value ? user.value.uid : null,
     price: cartTotalBaht.value,
     items: cart.value.map(item => ({ product: item.product, pieces: item.pieces, price: item.baht }))
-  }, paymentMethod.value === 'slip' ? slipRawFile.value : null);
+  }, null);
 
   isSubmitting.value = false;
   closeCartModal();
@@ -196,7 +211,7 @@ const submitOrder = async () => {
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
       <div class="text-center sm:text-left">
         <h1 class="text-3xl font-bold text-brand-dark">สินค้าทั้งหมด</h1>
-        <p class="text-slate-500 mt-2">เลือกซื้อสินค้าและแนบสลิปเพื่อเข้าสู่ระบบคิว</p>
+        <p class="text-slate-500 mt-2">เลือกซื้อสินค้าโดยใช้ยอดเงินใน Virtual Wallet ของคุณ</p>
       </div>
 
       <!-- Search Bar -->
@@ -246,9 +261,13 @@ const submitOrder = async () => {
         
         <div class="mt-4 flex items-center justify-between">
           <div>
-            <div v-if="product.pricingType === 'rate'" class="text-lg font-bold text-brand">เรต {{ formatPrice(product.price) }} ชิ้น/บาท</div>
-            <div v-else class="text-lg font-bold text-brand">{{ formatPrice(product.price) }} บาท/ชิ้น</div>
-            <div class="text-xs text-slate-400 mt-0.5">มีพร้อมส่ง: {{ formatPrice(product.quantity) }} ชิ้น</div>
+            <div v-if="product.pricingType === 'rate'" class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block mb-1 transition-all">
+               1 บาท ได้ <span class="text-sm">{{ formatPrice(product.price) }}</span> ชิ้น
+            </div>
+            <div v-else class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block mb-1 transition-all">
+               ชิ้นละ <span class="text-sm">{{ formatPrice(product.price) }}</span> บาท
+            </div>
+            <div class="text-xs text-slate-500 font-medium">สต๊อกพร้อมส่ง: <span class="text-slate-800 font-bold">{{ formatPrice(product.quantity) }}</span> ชิ้น</div>
           </div>
           
           <button 
@@ -289,8 +308,9 @@ const submitOrder = async () => {
           <div class="flex gap-4 mb-6 pb-6 border-b border-slate-100">
             <img :src="selectedProduct?.image" class="w-16 h-16 rounded-lg object-cover bg-slate-100" />
             <div>
-              <h3 class="font-medium text-slate-800">{{ selectedProduct?.name }}</h3>
-              <p class="text-brand font-bold mt-1">{{ formatPrice(selectedProduct?.price) }}</p>
+              <h3 class="font-medium text-slate-800 mb-1.5">{{ selectedProduct?.name }}</h3>
+              <div v-if="selectedProduct?.pricingType === 'rate'" class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block">1 บาท ได้ <span class="text-sm">{{ formatPrice(selectedProduct?.price) }}</span> ชิ้น</div>
+              <div v-else class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block">ชิ้นละ <span class="text-sm">{{ formatPrice(selectedProduct?.price) }}</span> บาท</div>
             </div>
           </div>
 
@@ -307,22 +327,29 @@ const submitOrder = async () => {
 
           <!-- Form -->
           <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
-                จำนวนที่ต้องการสั่งซื้อ (ชิ้น)
-                <span class="text-red-500">*</span>
-              </label>
-              <input v-model.number="purchaseQuantity" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm font-medium" placeholder="ระบุจำนวนชิ้น" />
-              
-              <div v-if="purchaseQuantity > 0" class="mt-2 bg-brand/10 p-3 rounded-xl border border-brand/20">
-                <p class="text-brand-dark font-medium text-sm flex justify-between">
-                  <span>ยอดรวมที่ต้องโอน:</span>
-                  <span class="text-brand font-bold">{{ formatPrice(calculatedBaht) }} บาท</span>
-                </p>
-                <p v-if="calculatedPieces > selectedProduct?.quantity" class="text-red-500 text-xs mt-1 font-medium">❌ สต๊อกไม่เพียงพอ</p>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">
+                  จำนวน (ชิ้น) <span class="text-red-500">*</span>
+                </label>
+                <input v-model.number="purchaseQuantity" @input="onUpdatePieces" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm font-medium" placeholder="ระบุชิ้น" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">
+                  กำหนดงบ (บาท)
+                </label>
+                <input v-model.number="purchaseBahtInput" @input="onUpdateBaht" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-sm font-medium" placeholder="ระบุงบประมาณ" />
               </div>
             </div>
-
+              
+            <div v-if="purchaseQuantity > 0" class="mt-2 bg-brand/10 p-3 rounded-xl border border-brand/20">
+              <p class="text-brand-dark font-medium text-sm flex justify-between">
+                <span>ยอดหักจาก Wallet:</span>
+                <span class="text-brand font-bold">{{ formatPrice(calculatedBaht) }} บาท</span>
+              </p>
+              <p class="text-slate-500 text-[10px] mt-1 text-right">*(คุณจะได้รับสินค้า {{ calculatedPieces }} ชิ้น)</p>
+              <p v-if="calculatedPieces > selectedProduct?.quantity" class="text-red-500 text-xs mt-1 font-medium">❌ สต๊อกไม่เพียงพอ</p>
+            </div>
           </div>
         </div>
 
@@ -378,62 +405,13 @@ const submitOrder = async () => {
               <input v-model="robloxName" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all text-sm" placeholder="กรอกชื่อ Roblox ของคุณ" />
             </div>
 
-            <div class="space-y-3">
-              <label class="block text-sm font-medium text-slate-700 mb-1">เลือกช่องทางการชำระเงิน <span class="text-red-500">*</span></label>
-              
-              <div class="grid grid-cols-2 gap-3">
-                <label class="cursor-pointer">
-                  <input type="radio" value="slip" v-model="paymentMethod" class="peer hidden" />
-                  <div class="border border-slate-200 rounded-xl p-3 text-center transition-all peer-checked:border-brand peer-checked:bg-brand/5 peer-checked:ring-1 peer-checked:ring-brand flex flex-col items-center justify-center gap-1 h-full">
-                    <UploadCloud class="w-5 h-5 text-slate-400 peer-checked:text-brand" :class="{'text-brand': paymentMethod === 'slip'}" />
-                    <span class="text-xs font-medium text-slate-600" :class="{'text-brand-dark': paymentMethod === 'slip'}">โอนเงิน (แนบสลิป)</span>
-                  </div>
-                </label>
-                
-                <label class="cursor-pointer relative">
-                  <input type="radio" value="wallet" v-model="paymentMethod" class="peer hidden" :disabled="!userProfile || userProfile.virtualWallet < cartTotalBaht" />
-                  <div class="border border-slate-200 rounded-xl p-3 text-center transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:ring-1 peer-checked:ring-emerald-500 flex flex-col items-center justify-center gap-1 h-full opacity-100 peer-disabled:opacity-50 peer-disabled:bg-slate-50 peer-disabled:cursor-not-allowed">
-                    <Wallet class="w-5 h-5 text-slate-400 peer-checked:text-emerald-500" :class="{'text-emerald-500': paymentMethod === 'wallet'}" />
-                    <span class="text-xs font-medium text-slate-600" :class="{'text-emerald-700': paymentMethod === 'wallet'}">กระเป๋าเงิน (Wallet)</span>
-                    <span v-if="userProfile" class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 mt-0.5" :class="{'text-red-500 bg-red-50': userProfile.virtualWallet < cartTotalBaht}">มี: {{ userProfile.virtualWallet }}฿</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <template v-if="paymentMethod === 'slip'">
-               <div class="bg-brand-light/50 rounded-xl p-4 border border-brand-light">
-                 <p class="text-sm text-brand-dark font-medium mb-1">บัญชีสำหรับโอนเงิน</p>
-                 <p class="text-sm text-slate-600">พร้อมเพย์ (Promptpay): 0811780531</p>
-                 <p class="text-sm text-slate-600">ทรูมันนี่ (TrueMoney): 0840100637</p>
-               </div>
-   
-               <div>
-                 <label class="block text-sm font-medium text-slate-700 mb-1">แนบสลิปโอนเงิน <span class="text-red-500">*</span></label>
-                 <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative cursor-pointer group">
-                   <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" @change="handleSlipUpload" />
-                   <div v-if="!slipImage" class="space-y-2 pointer-events-none">
-                     <div class="w-10 h-10 bg-brand-light rounded-full flex items-center justify-center mx-auto text-brand">
-                       <UploadCloud class="w-5 h-5" />
-                     </div>
-                     <p class="text-sm text-slate-500">คลิก หรือ ลากสลิปมาวางที่นี่</p>
-                   </div>
-                   <div v-else class="relative pointer-events-none">
-                     <img :src="slipImage" class="max-h-40 mx-auto rounded-lg shadow-sm" />
-                     <div class="absolute inset-0 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-                       <span class="text-brand font-medium text-sm drop-shadow-md">เปลี่ยนสลิป</span>
-                     </div>
-                   </div>
-                 </div>
-               </div>
-            </template>
-            <template v-else>
+            <div class="space-y-3 pt-2">
                <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex flex-col items-center justify-center text-center">
                   <Wallet class="w-8 h-8 text-emerald-400 mb-2" />
-                  <p class="text-emerald-800 font-medium text-sm">ยอดเงินปัจจุบันของคุณคือ {{ userProfile?.virtualWallet || 0 }} บาท</p>
-                  <p class="text-emerald-600/80 text-xs mt-1">ระบบจะหักเงิน {{ cartTotalBaht }} บาททันทีที่คุณกดยืนยัน</p>
+                  <p class="text-emerald-800 font-medium text-sm">ยอดเงินปัจจุบันของคุณคือ {{ formatPrice(userProfile?.virtualWallet || 0) }} บาท</p>
+                  <p class="text-emerald-600/80 text-xs mt-1">ระบบจะหักเงินจาก Wallet จำนวน {{ formatPrice(cartTotalBaht) }} บาททันทีที่คุณกดยืนยัน</p>
                </div>
-            </template>
+            </div>
           </div>
         </div>
 
