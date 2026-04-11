@@ -105,10 +105,43 @@ export const useAuthStore = defineStore('auth', () => {
       await updateDoc(userRef, {
          virtualWallet: increment(amount)
       });
+      if (userProfile.value) {
+         userProfile.value.virtualWallet += amount;
+      }
       return { success: true, message: 'ทำรายการสำเร็จ' };
     } catch (error) {
       console.error('Adjust Wallet Failed:', error);
       return { success: false, message: error.message };
+    }
+  };
+
+  const topupWallet = async (slipDataUrl) => {
+    if (!user.value || !slipDataUrl) {
+      return { success: false, message: 'ข้อมูลไม่ครบถ้วน' };
+    }
+    try {
+      const response = await fetch('/api/verify-slip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uid: user.value.uid,
+          slipDataUrl
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.amount) {
+         if (userProfile.value) {
+            userProfile.value.virtualWallet += result.amount;
+         }
+      }
+      return result;
+    } catch (error) {
+      console.error('Topup Error:', error);
+      return { success: false, message: 'ระบบขัดข้อง: ' + error.message };
     }
   };
 
@@ -121,6 +154,7 @@ export const useAuthStore = defineStore('auth', () => {
     loginWithGoogle,
     logout,
     updateProfile,
-    adjustWallet
+    adjustWallet,
+    topupWallet
   };
 });

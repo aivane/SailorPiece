@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter } from 'firebase/firestore';
 
 export const useShopStore = defineStore('shop', () => {
   const rawProducts = ref([]);
@@ -64,7 +64,11 @@ export const useShopStore = defineStore('shop', () => {
     // Listen to ACTIVE queues only
     const activeQuery = query(collection(db, 'queues'), where('status', '==', 'waiting'));
     onSnapshot(activeQuery, (snapshot) => {
-      queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => b.timestamp - a.timestamp);
+      queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => {
+         const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
+         const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
+         return timeA - timeB; // FIFO: oldest first
+      });
     });
 
     // Listen to categories
@@ -389,6 +393,17 @@ export const useShopStore = defineStore('shop', () => {
          }
       } else {
          // Rejecting or other status
+         if (newStatus === 'rejected') {
+             // Refund if they used wallet
+             const queueSnap = await getDoc(qRef);
+             if (queueSnap.exists()) {
+                 const qData = queueSnap.data();
+                 if (qData.paymentMethod === 'wallet' && qData.uid && qData.status === 'waiting') {
+                     const userRef = doc(db, 'users', qData.uid);
+                     await updateDoc(userRef, { virtualWallet: increment(qData.price) });
+                 }
+             }
+         }
          await updateDoc(qRef, { status: newStatus });
          return { success: true };
       }
