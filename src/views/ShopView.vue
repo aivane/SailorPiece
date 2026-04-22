@@ -266,37 +266,41 @@ const submitOrder = async () => {
             <span class="font-bold text-amber-600 flex items-center gap-1 mb-0.5">🛠️ เซ็ตคราฟท์:</span> 
             <span class="opacity-80 line-clamp-1">ดรอป: <span v-for="(req, idx) in product.recipeItems" :key="req.productId">{{req.name}} (x{{req.pieces}})<template v-if="idx < product.recipeItems.length - 1">, </template></span></span>
           </div>
-          <div v-else class="flex-grow"></div>
+          <div class="flex-grow min-h-[8px]"></div>
           
           <!-- Price & Stock section -->
-          <div class="mt-3 pt-3 flex items-end justify-between border-t border-slate-100">
-             <div class="flex flex-col gap-1 w-[calc(100%-3rem)] pr-2">
-                <div v-if="product.pricingType === 'rate'" class="text-xs font-semibold text-brand flex items-baseline gap-1" title="ราคาเรต">
-                   <span class="bg-brand/10 px-1.5 py-0.5 rounded text-brand font-bold border border-brand/20">1฿</span>
+          <div class="pt-3 flex flex-col border-t border-slate-100 mt-auto">
+            <!-- Price Row -->
+            <div class="flex items-center h-[28px] mb-2">
+                <div v-if="product.pricingType === 'rate'" class="text-[11px] font-semibold text-brand flex items-center gap-1 w-fit bg-brand-light/30 px-2 py-0.5 rounded border border-brand/20">
+                   <span class="font-bold">1฿</span>
                    <span class="text-slate-400">=</span>
-                   <span class="text-xl font-black text-brand-dark leading-none tracking-tight">{{ formatPrice(product.price) }}</span>
-                   <span class="text-[10px] text-slate-500">ชิ้น</span>
+                   <span class="text-lg font-black text-brand-dark leading-none tracking-tight">{{ formatPrice(product.price) }}</span>
+                   <span class="text-slate-500">ชิ้น</span>
                 </div>
                 <div v-else class="text-xs font-semibold text-brand flex items-baseline gap-1" title="ราคาฟิก">
                    <span class="text-xl font-black text-brand-dark leading-none tracking-tight">{{ formatPrice(product.price) }}</span>
-                   <span class="text-[10px] text-slate-500">บ./ชิ้น</span>
+                   <span class="text-[11px] text-slate-500 font-medium tracking-wide">บาท/ชิ้น</span>
+                </div>
+            </div>
+            
+            <!-- Stock & Button Row -->
+            <div class="flex items-center justify-between">
+                <div class="text-[11px] text-slate-500 flex items-center gap-1.5 whitespace-nowrap bg-slate-50 px-2 py-1.5 rounded-md border border-slate-100">
+                   <div class="w-1.5 h-1.5 rounded-full" :class="product.quantity > 0 ? 'bg-emerald-500' : 'bg-red-500'"></div>
+                   คงเหลือ: <span class="font-bold text-slate-700 ml-0.5 text-xs">{{ formatPrice(product.quantity) }}</span>
                 </div>
                 
-                <div class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                   <div class="w-1.5 h-1.5 rounded-full" :class="product.quantity > 0 ? 'bg-emerald-500' : 'bg-red-500'"></div>
-                   พร้อมส่ง: <span class="font-bold text-slate-700">{{ formatPrice(product.quantity) }}</span>
-                </div>
-             </div>
-             
-             <!-- Add to Cart Button -->
-             <button 
-               @click="openCheckout(product)"
-               :disabled="product.status === 'out-of-stock'"
-               class="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl transition-all shadow-sm group-hover:scale-105"
-               :class="product.status === 'out-of-stock' ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' : 'bg-brand hover:bg-brand-dark hover:shadow-brand/30 hover:-translate-y-1 text-white'"
-             >
-               <ShoppingCart class="w-5 h-5" />
-             </button>
+                <!-- Add to Cart Button -->
+                <button 
+                  @click="openCheckout(product)"
+                  :disabled="product.status === 'out-of-stock'"
+                  class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-sm group-hover:scale-105"
+                  :class="product.status === 'out-of-stock' ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' : 'bg-brand hover:bg-brand-dark hover:shadow-brand/30 hover:-translate-y-0.5 text-white'"
+                >
+                  <ShoppingCart class="w-4 h-4" />
+                </button>
+            </div>
           </div>
         </div>
       </div>

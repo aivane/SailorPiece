@@ -253,7 +253,8 @@ export const useShopStore = defineStore('shop', () => {
             image: '',
             category: 'New Import',
             pricingType: 'fixed',
-            badge: 'new'
+            badge: 'new',
+            isActive: false
          });
       }
 

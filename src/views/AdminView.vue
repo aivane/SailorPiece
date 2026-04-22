@@ -288,6 +288,24 @@ const duplicateProduct = (p) => {
   isModalOpen.value = true;
 };
 
+const hideAllDrafts = async () => {
+    if (await uiStore.showConfirm('คุณต้องการปิดสถานะการแสดงผลหน้าร้านของ "ฉบับร่าง (รอแก้ไข)" ทั้งหมด ใช่หรือไม่?')) {
+        const drafts = products.value.filter(p => (!p.image || p.price <= 0) && p.isActive !== false);
+        if (drafts.length === 0) {
+            uiStore.showAlert('ฉบับร่างทั้งหมดถูกปิดแสดงหน้าร้านอยู่แล้ว', 'info');
+            return;
+        }
+        uiStore.showAlert(`กำลังอัปเดต ${drafts.length} รายการ...`, 'info');
+        let successCount = 0;
+        for (const p of drafts) {
+            const updated = { ...p, isActive: false };
+            const result = await shopStore.updateProduct(p.id, updated, null);
+            if(result.success) successCount++;
+        }
+        uiStore.showAlert(`อัปเดตสำเร็จ ${successCount} รายการ`, 'success');
+    }
+};
+
 const newRecipeItemId = ref('');
 const newRecipeItemPieces = ref(1);
 
@@ -682,9 +700,14 @@ const confirmImport = async () => {
         <div>
           <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลสินค้าในร้าน</h2>
           <!-- Product View Toggle -->
-          <div class="flex bg-slate-100 p-1 rounded-lg mt-3 w-mc">
-            <button @click="productViewMode = 'ready'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'ready' ? 'bg-white shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700']">สินค้าเผยแพร่แล้ว</button>
-            <button @click="productViewMode = 'draft'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'draft' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-500 hover:text-slate-700']">ฉบับร่าง (รอแก้ไข)</button>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <div class="flex bg-slate-100 p-1 rounded-lg w-max">
+              <button @click="productViewMode = 'ready'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'ready' ? 'bg-white shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700']">สินค้าเผยแพร่แล้ว</button>
+              <button @click="productViewMode = 'draft'" :class="['px-3 py-1.5 text-sm font-medium rounded-md transition-colors', productViewMode === 'draft' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-500 hover:text-slate-700']">ฉบับร่าง (รอแก้ไข)</button>
+            </div>
+            <button v-if="productViewMode === 'draft'" @click="hideAllDrafts" class="text-xs font-medium bg-slate-800 text-white px-3 py-2 rounded-lg hover:bg-slate-700 shadow-sm transition-colors border border-slate-700">
+               ปิดหน้าร้านฉบับร่างทั้งหมด
+            </button>
           </div>
         </div>
         
