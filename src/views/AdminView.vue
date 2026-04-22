@@ -185,7 +185,7 @@ const focusRejectQueue = async () => {
 
 const isModalOpen = ref(false);
 const editingProductId = ref(null);
-const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [] });
+const productForm = ref({ name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [], isActive: true });
 const imageRawFile = ref(null);
 const isSubmitting = ref(false);
 
@@ -195,14 +195,14 @@ const closeSlip = () => { viewingSlipUrl.value = null; };
 
 const openAddModal = () => {
   editingProductId.value = null;
-  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [] };
+  productForm.value = { name: '', description: '', price: 0, quantity: 1, image: '', pricingType: 'fixed', category: 'Reroll', badge: 'none', isRecipe: false, recipeItems: [], isActive: true };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
 
 const openEditModal = (product) => {
   editingProductId.value = product.id;
-  productForm.value = { ...product, recipeItems: product.recipeItems || [], isRecipe: product.isRecipe || false };
+  productForm.value = { ...product, recipeItems: product.recipeItems || [], isRecipe: product.isRecipe || false, isActive: product.hasOwnProperty('isActive') ? product.isActive : true };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
@@ -271,9 +271,19 @@ const quickSave = async (p) => {
   }
 };
 
+const toggleProductActive = async (p, isActive) => {
+  const updated = { ...p, isActive };
+  const result = await shopStore.updateProduct(p.id, updated, null);
+  if (result.success) {
+     uiStore.showAlert(isActive ? 'เปิดแสดงสินค้าแล้ว' : 'ซ่อนสินค้าแล้ว', 'success');
+  } else {
+     uiStore.showAlert(result.message || 'บันทึกไม่สำเร็จ', 'error');
+  }
+};
+
 const duplicateProduct = (p) => {
   editingProductId.value = null;
-  productForm.value = { ...p, name: p.name + ' (Copy)', recipeItems: p.recipeItems ? [...p.recipeItems] : [], isRecipe: p.isRecipe || false };
+  productForm.value = { ...p, name: p.name + ' (Copy)', recipeItems: p.recipeItems ? [...p.recipeItems] : [], isRecipe: p.isRecipe || false, isActive: p.hasOwnProperty('isActive') ? p.isActive : true };
   imageRawFile.value = null;
   isModalOpen.value = true;
 };
@@ -706,6 +716,7 @@ const confirmImport = async () => {
               <th class="px-4 py-3 font-medium">รูปแบบ</th>
               <th class="px-4 py-3 font-medium">ราคา / เรต</th>
               <th class="px-4 py-3 font-medium">สต๊อก</th>
+              <th class="px-4 py-3 font-medium text-center">แสดงหน้าร้าน</th>
               <th class="px-4 py-3 font-medium text-right">แอคชั่น (บันทึกด่วน)</th>
             </tr>
           </thead>
@@ -727,6 +738,12 @@ const confirmImport = async () => {
               </td>
               <td class="px-4 py-3 text-slate-600">
                 <input type="number" v-model.number="p.quantity" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm outline-brand focus:border-brand" />
+              </td>
+              <td class="px-4 py-3 text-center">
+                <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
+                  <input type="checkbox" :checked="p.isActive !== false" @change="toggleProductActive(p, $event.target.checked)" class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
               </td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button @click="quickSave(p)" class="text-white bg-emerald-500 hover:bg-emerald-600 shadow-sm px-2 py-1 rounded text-xs font-semibold inline-flex items-center gap-1 transition-colors"><Check class="w-3 h-3"/>เซฟเลข</button>
@@ -971,6 +988,17 @@ const confirmImport = async () => {
                 <p class="text-xs text-slate-400 mt-1">สามารถอัปโหลดรูปจากเครื่องของคุณได้เลย</p>
               </div>
             </div>
+          </div>
+          
+          <div class="pt-4 border-t border-slate-100">
+             <label class="flex items-center gap-3 font-medium text-slate-700 cursor-pointer w-max pl-1">
+                <div class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" v-model="productForm.isActive" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </div>
+                <span>เปิดแสดงสินค้าชิ้นนี้บนหน้าร้านค้า</span>
+             </label>
+             <p class="text-xs text-slate-500 mt-1.5 pl-14">หากปิดไว้ ลูกค้าจะไม่เห็นสินค้านี้ แต่แอดมินสามารถเตรียมสินค้าไว้รอขายได้</p>
           </div>
         </div>
         <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">

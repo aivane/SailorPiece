@@ -20,8 +20,8 @@ const activeCategory = ref('ทั้งหมด');
 const searchQuery = ref('');
 
 const filteredProducts = computed(() => {
-  // First, filter out items that don't have an image or are priced at 0 (drafts/imported items)
-  let result = products.value.filter(p => p.image && p.price > 0);
+  // First, filter out items that don't have an image or are priced at 0 (drafts/imported items), or are set to inactive
+  let result = products.value.filter(p => p.image && p.price > 0 && p.isActive !== false);
   
   // 1. Filter by category
   if (activeCategory.value !== 'ทั้งหมด') {
@@ -240,43 +240,64 @@ const submitOrder = async () => {
 
     <!-- Product Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-      <div v-for="product in filteredProducts" :key="product.id" class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border border-slate-100 flex flex-col group">
+      <div v-for="product in filteredProducts" :key="product.id" class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 flex flex-col group relative overflow-hidden">
+        <!-- Image Area -->
         <div class="aspect-square w-full bg-slate-50 rounded-xl mb-4 overflow-hidden relative">
-          <img :src="product.image" :alt="product.name" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 contrast-105 saturate-105 [image-rendering:-webkit-optimize-contrast]" />
+          <img :src="product.image" :alt="product.name" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 contrast-105 saturate-105 [image-rendering:-webkit-optimize-contrast]" />
+          
           <!-- Badges -->
-          <div v-if="product.badge === 'new'" class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm z-10 animate-pulse border border-red-400">NEW!</div>
-          <div v-if="product.badge === 'promotion'" class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm z-10 border border-yellow-300">PROMO🔥</div>
+          <div class="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+            <div v-if="product.badge === 'new'" class="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm uppercase tracking-wider animate-pulse w-max">NEW</div>
+            <div v-if="product.badge === 'promotion'" class="bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded shadow-sm uppercase tracking-wider w-max">HOT🔥</div>
+          </div>
           
-          <div v-if="product.status === 'out-of-stock'" class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px]">
-            <span class="bg-slate-800 text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm">สินค้าหมด</span>
+          <div v-if="product.status === 'out-of-stock'" class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[2px]">
+             <span class="bg-slate-800 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">สินค้าหมด</span>
           </div>
         </div>
         
-        <h3 class="text-lg font-semibold text-brand-dark">{{ product.name }}</h3>
-        <p class="text-sm text-slate-500 mt-1 line-clamp-2 flex-grow">{{ product.description }}</p>
-        
-        <div v-if="product.isRecipe && product.recipeItems" class="mt-3 text-[11px] bg-white text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm leading-relaxed">
-          <span class="font-bold text-amber-600">🛠️ เซ็ตคราฟท์:</span> จะได้รับวัตถุดิบ <span v-for="(req, idx) in product.recipeItems" :key="req.productId">{{req.name}} (x{{req.pieces}})<template v-if="idx < product.recipeItems.length - 1">, </template></span>
-        </div>
-        
-        <div class="mt-4 flex items-center justify-between">
-          <div>
-            <div v-if="product.pricingType === 'rate'" class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block mb-1 transition-all">
-               1 บาท ได้ <span class="text-sm">{{ formatPrice(product.price) }}</span> ชิ้น
-            </div>
-            <div v-else class="text-xs font-bold text-brand bg-brand-light/30 px-2.5 py-1 rounded-lg border border-brand/20 inline-block mb-1 transition-all">
-               ชิ้นละ <span class="text-sm">{{ formatPrice(product.price) }}</span> บาท
-            </div>
-            <div class="text-xs text-slate-500 font-medium">สต๊อกพร้อมส่ง: <span class="text-slate-800 font-bold">{{ formatPrice(product.quantity) }}</span> ชิ้น</div>
-          </div>
+        <!-- Content Area -->
+        <div class="flex flex-col flex-grow">
+          <h3 class="text-lg font-bold text-slate-800 line-clamp-1 leading-tight group-hover:text-brand transition-colors">{{ product.name }}</h3>
+          <p v-if="product.description" class="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{{ product.description }}</p>
+          <div v-else class="flex-grow"></div> <!-- Spacer if no description -->
           
-          <button 
-            @click="openCheckout(product)"
-            :disabled="product.status === 'out-of-stock'"
-            class="bg-brand hover:bg-brand-dark text-white p-2.5 rounded-xl disabled:bg-slate-100 disabled:text-slate-300 transition-colors shadow-sm shadow-brand/20 disabled:shadow-none"
-          >
-            <ShoppingCart class="w-5 h-5" />
-          </button>
+          <div v-if="product.isRecipe && product.recipeItems" class="mt-2.5 text-[11px] bg-amber-50/50 text-slate-600 px-2.5 py-1.5 rounded-lg border border-amber-100/50 shadow-sm leading-relaxed">
+            <span class="font-bold text-amber-600 flex items-center gap-1 mb-0.5">🛠️ เซ็ตคราฟท์:</span> 
+            <span class="opacity-80 line-clamp-1">ดรอป: <span v-for="(req, idx) in product.recipeItems" :key="req.productId">{{req.name}} (x{{req.pieces}})<template v-if="idx < product.recipeItems.length - 1">, </template></span></span>
+          </div>
+          <div v-else class="flex-grow"></div>
+          
+          <!-- Price & Stock section -->
+          <div class="mt-3 pt-3 flex items-end justify-between border-t border-slate-100">
+             <div class="flex flex-col gap-1 w-[calc(100%-3rem)] pr-2">
+                <div v-if="product.pricingType === 'rate'" class="text-xs font-semibold text-brand flex items-baseline gap-1" title="ราคาเรต">
+                   <span class="bg-brand/10 px-1.5 py-0.5 rounded text-brand font-bold border border-brand/20">1฿</span>
+                   <span class="text-slate-400">=</span>
+                   <span class="text-xl font-black text-brand-dark leading-none tracking-tight">{{ formatPrice(product.price) }}</span>
+                   <span class="text-[10px] text-slate-500">ชิ้น</span>
+                </div>
+                <div v-else class="text-xs font-semibold text-brand flex items-baseline gap-1" title="ราคาฟิก">
+                   <span class="text-xl font-black text-brand-dark leading-none tracking-tight">{{ formatPrice(product.price) }}</span>
+                   <span class="text-[10px] text-slate-500">บ./ชิ้น</span>
+                </div>
+                
+                <div class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                   <div class="w-1.5 h-1.5 rounded-full" :class="product.quantity > 0 ? 'bg-emerald-500' : 'bg-red-500'"></div>
+                   พร้อมส่ง: <span class="font-bold text-slate-700">{{ formatPrice(product.quantity) }}</span>
+                </div>
+             </div>
+             
+             <!-- Add to Cart Button -->
+             <button 
+               @click="openCheckout(product)"
+               :disabled="product.status === 'out-of-stock'"
+               class="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-xl transition-all shadow-sm group-hover:scale-105"
+               :class="product.status === 'out-of-stock' ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' : 'bg-brand hover:bg-brand-dark hover:shadow-brand/30 hover:-translate-y-1 text-white'"
+             >
+               <ShoppingCart class="w-5 h-5" />
+             </button>
+          </div>
         </div>
       </div>
     </div>

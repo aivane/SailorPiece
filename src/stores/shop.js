@@ -195,7 +195,8 @@ export const useShopStore = defineStore('shop', () => {
         category: productData.category || 'Reroll',
         badge: productData.badge || 'none',
         isRecipe: productData.isRecipe || false,
-        recipeItems: productData.recipeItems || []
+        recipeItems: productData.recipeItems || [],
+        isActive: productData.hasOwnProperty('isActive') ? productData.isActive : true
       });
       return { success: true };
     } catch (e) {
