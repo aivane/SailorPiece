@@ -1,12 +1,16 @@
 <script setup>
+import { ref } from 'vue'
 import { RouterView, RouterLink } from 'vue-router'
-import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList, Wallet } from 'lucide-vue-next'
+import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList, Wallet, MessageSquarePlus } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { storeToRefs } from 'pinia'
 import GlobalUI from './components/GlobalUI.vue'
+import FeedbackModal from './components/FeedbackModal.vue'
 
 const authStore = useAuthStore()
 const { user, userProfile, isAdmin, loading } = storeToRefs(authStore)
+
+const isFeedbackOpen = ref(false)
 </script>
 
 <template>
@@ -69,6 +73,25 @@ const { user, userProfile, isAdmin, loading } = storeToRefs(authStore)
     <footer class="bg-white py-6 border-t border-slate-100 mt-auto">
       <p class="text-center text-slate-400 text-sm">© 2026 SailorPiece - Simple Commerce & Queue</p>
     </footer>
+
+    <!-- Floating Feedback Button -->
+    <button 
+      v-if="user"
+      @click="isFeedbackOpen = true"
+      class="fixed bottom-6 right-6 z-40 bg-brand hover:bg-brand-dark text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group flex items-center justify-center"
+      title="ส่งข้อเสนอแนะ"
+    >
+      <MessageSquarePlus class="w-6 h-6" />
+      <span class="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out font-medium text-sm">
+        เสนอแนะ
+      </span>
+    </button>
+
+    <!-- Feedback Modal -->
+    <FeedbackModal 
+      :is-open="isFeedbackOpen" 
+      @close="isFeedbackOpen = false" 
+    />
   </div>
 </template>
 

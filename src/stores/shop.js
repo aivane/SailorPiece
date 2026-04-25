@@ -28,6 +28,7 @@ export const useShopStore = defineStore('shop', () => {
   const queues = ref([]);
   const cart = ref([]);
   const categories = ref(['Reroll', 'Melee', 'Sword', 'Chest', 'Summon', 'Other']);
+  const vipServerLink = ref('https://www.roblox.com/share?code=4e552f5d09d18248bb956740e7470d08&type=Server');
 
   const adminHistoryQueues = ref([]);
   const hasMoreAdminHistory = ref(true);
@@ -71,23 +72,33 @@ export const useShopStore = defineStore('shop', () => {
       });
     });
 
-    // Listen to categories
+    // Listen to categories and config
     onSnapshot(doc(db, 'configs', 'shop'), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().categories) {
-        categories.value = docSnap.data().categories;
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.categories) categories.value = data.categories;
+        if (data.vipServerLink) vipServerLink.value = data.vipServerLink;
       } else {
         // Initialize if not exists
-        setDoc(doc(db, 'configs', 'shop'), { categories: categories.value }, { merge: true });
+        setDoc(doc(db, 'configs', 'shop'), { 
+           categories: categories.value, 
+           vipServerLink: vipServerLink.value,
+           globalQueueCounter: 0
+        }, { merge: true });
       }
     });
   };
 
-  const updateCategories = async (newCategories) => {
+  const updateConfig = async (newConfig) => {
     try {
-      await setDoc(doc(db, 'configs', 'shop'), { categories: newCategories }, { merge: true });
+      await setDoc(doc(db, 'configs', 'shop'), newConfig, { merge: true });
     } catch (e) {
-      console.error('Error updating categories:', e);
+      console.error('Error updating config:', e);
     }
+  };
+
+  const updateCategories = async (newCategories) => {
+    await updateConfig({ categories: newCategories });
   };
 
   const loadAdminHistory = async (reset = false) => {
@@ -301,13 +312,17 @@ export const useShopStore = defineStore('shop', () => {
 
       const qDocRef = doc(collection(db, 'queues'));
       
-      let maxQueueNumber = 0;
-      for (const q of queues.value) {
-         if (q.queueNumber && q.queueNumber > maxQueueNumber) {
-            maxQueueNumber = q.queueNumber;
-         }
+      // Fetch and increment global queue counter
+      const configRef = doc(db, 'configs', 'shop');
+      const configSnap = await getDoc(configRef);
+      let newQueueNumber = 1;
+      if (configSnap.exists()) {
+         const currentCounter = configSnap.data().globalQueueCounter || 0;
+         newQueueNumber = currentCounter + 1;
+         await updateDoc(configRef, { globalQueueCounter: newQueueNumber });
+      } else {
+         await setDoc(configRef, { globalQueueCounter: 1 }, { merge: true });
       }
-      const newQueueNumber = maxQueueNumber + 1;
       
       // Store both legacy formatting and new multiple-items logic
       await setDoc(qDocRef, {
@@ -433,6 +448,8 @@ export const useShopStore = defineStore('shop', () => {
     clearCart,
     categories,
     updateCategories,
+    vipServerLink,
+    updateConfig,
     adminHistoryQueues,
     hasMoreAdminHistory,
     loadAdminHistory,

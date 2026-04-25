@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database, MessageSquare } from 'lucide-vue-next';
 
 import { db } from '../firebase/config';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -8,12 +8,14 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
+import { useSuggestionsStore } from '../stores/suggestions';
 import { storeToRefs } from 'pinia';
 
 const shopStore = useShopStore();
 const authStore = useAuthStore();
 const uiStore = useUiStore();
-const { products, queues: currentQueues, categories, adminHistoryQueues, hasMoreAdminHistory } = storeToRefs(shopStore);
+const suggestionsStore = useSuggestionsStore();
+const { products, queues: currentQueues, categories, adminHistoryQueues, hasMoreAdminHistory, vipServerLink } = storeToRefs(shopStore);
 
 // Use 'users' tab instead of 'wallet'
 const activeTab = ref('queue');
@@ -22,6 +24,9 @@ import { watch } from 'vue';
 watch(activeTab, (val) => {
   if (val === 'history' && adminHistoryQueues.value.length === 0) {
     shopStore.loadAdminHistory(true);
+  }
+  if (val === 'suggestions' && suggestionsStore.suggestions.length === 0) {
+    suggestionsStore.fetchSuggestions();
   }
 });
 
@@ -112,6 +117,16 @@ const removeCategory = async (catToRemove) => {
     const updatedCategories = categories.value.filter(cat => cat !== catToRemove);
     await shopStore.updateCategories(updatedCategories);
   }
+};
+
+const newVipLink = ref('');
+watch(vipServerLink, (newVal) => {
+   if (newVal) newVipLink.value = newVal;
+}, { immediate: true });
+
+const saveVipLink = async () => {
+   await shopStore.updateConfig({ vipServerLink: newVipLink.value });
+   uiStore.showAlert('อัปเดตลิ้งก์ VIP Server สำเร็จ', 'success');
 };
 
 const waitingQueues = computed(() => currentQueues.value.filter(q => q.status === 'waiting'));
@@ -432,13 +447,19 @@ const confirmImport = async () => {
           @click="activeTab = 'categories'"
           :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
-          <Layers class="w-4 h-4" /> จัดการหมวดหมู่
+          <Layers class="w-4 h-4" /> ตั้งค่าระบบ/หมวดหมู่
         </button>
         <button 
           @click="activeTab = 'users'"
           :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
         >
           <UserCog class="w-4 h-4" /> จัดการผู้ใช้
+        </button>
+        <button 
+          @click="activeTab = 'suggestions'"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'suggestions' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+        >
+          <MessageSquare class="w-4 h-4" /> ข้อเสนอแนะ
         </button>
       </div>
     </div>
@@ -785,25 +806,43 @@ const confirmImport = async () => {
       </div>
     </div>
 
-    <!-- Categories Management Tab -->
-    <div v-if="activeTab === 'categories'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
-      <div class="flex justify-between items-center">
-        <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลหมวดหมู่สินค้า</h2>
-      </div>
+    <!-- System Settings & Categories Tab -->
+    <div v-if="activeTab === 'categories'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-8">
       
-      <div class="flex gap-2 w-full max-w-md">
-        <input v-model="newCategoryName" type="text" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่ที่นี่..." class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" @keyup.enter="addCategory" />
-        <button @click="addCategory" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm whitespace-nowrap">
-          <Plus class="w-4 h-4" /> เพิ่มหมวดหมู่
-        </button>
+      <!-- VIP Link Section -->
+      <div class="space-y-4">
+        <div class="flex justify-between items-center border-b pb-2 border-slate-100">
+          <h2 class="text-lg font-semibold text-slate-800">ตั้งค่าลิ้งก์ VIP Server</h2>
+        </div>
+        <p class="text-sm text-slate-500">ลิ้งก์นี้จะแสดงให้ลูกค้ากดเข้าเซิร์ฟเวอร์ในหน้ารอคิว</p>
+        <div class="flex gap-2 w-full max-w-2xl">
+          <input v-model="newVipLink" type="text" placeholder="วางลิ้งก์ Private Server ของ Roblox ที่นี่..." class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" />
+          <button @click="saveVipLink" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm whitespace-nowrap">
+            <Check class="w-4 h-4" /> บันทึกลิ้งก์
+          </button>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div v-for="cat in categories" :key="cat" class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-brand/30 transition-colors">
-          <span class="font-medium text-slate-700 text-sm">{{ cat }}</span>
-          <button @click="removeCategory(cat)" class="text-red-400 hover:text-red-600 transition-colors p-1 bg-white rounded-md shadow-sm border border-slate-100 hover:border-red-100">
-             <X class="w-4 h-4" />
+      <!-- Categories Section -->
+      <div class="space-y-4 pt-4 border-t border-slate-100">
+        <div class="flex justify-between items-center border-b pb-2 border-slate-100">
+          <h2 class="text-lg font-semibold text-slate-800">จัดการข้อมูลหมวดหมู่สินค้า</h2>
+        </div>
+        
+        <div class="flex gap-2 w-full max-w-md mt-2">
+          <input v-model="newCategoryName" type="text" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่ที่นี่..." class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-brand outline-none" @keyup.enter="addCategory" />
+          <button @click="addCategory" class="bg-brand text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-dark transition-colors shadow-sm whitespace-nowrap">
+            <Plus class="w-4 h-4" /> เพิ่มหมวดหมู่
           </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+          <div v-for="cat in categories" :key="cat" class="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-brand/30 transition-colors">
+            <span class="font-medium text-slate-700 text-sm">{{ cat }}</span>
+            <button @click="removeCategory(cat)" class="text-red-400 hover:text-red-600 transition-colors p-1 bg-white rounded-md shadow-sm border border-slate-100 hover:border-red-100">
+               <X class="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -869,6 +908,67 @@ const confirmImport = async () => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Suggestions Tab -->
+    <div v-if="activeTab === 'suggestions'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex justify-between items-center border-b pb-4 border-slate-100">
+        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+          <MessageSquare class="w-6 h-6 text-brand" /> 
+          ข้อเสนอแนะและคำขอจากลูกค้า
+        </h2>
+        <button @click="suggestionsStore.fetchSuggestions" class="text-sm bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1">
+           รีเฟรช
+        </button>
+      </div>
+
+      <div v-if="suggestionsStore.loading" class="p-12 flex justify-center items-center">
+         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+      </div>
+
+      <div v-else-if="suggestionsStore.suggestions.length === 0" class="p-12 text-center text-slate-500">
+         ยังไม่มีข้อเสนอแนะในขณะนี้
+      </div>
+
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div v-for="suggestion in suggestionsStore.suggestions" :key="suggestion.id" class="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start mb-3">
+               <div class="flex items-center gap-2">
+                  <img v-if="suggestion.userPhotoURL" :src="suggestion.userPhotoURL" class="w-8 h-8 rounded-full border border-slate-200" />
+                  <div v-else class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center"><UserCog class="w-4 h-4 text-slate-400" /></div>
+                  <div>
+                     <p class="text-sm font-bold text-slate-800">{{ suggestion.userName }}</p>
+                     <p class="text-xs text-slate-500">{{ suggestion.createdAt ? suggestion.createdAt.toLocaleString('th-TH') : 'ไม่ระบุเวลา' }}</p>
+                  </div>
+               </div>
+               <span v-if="suggestion.status === 'pending'" class="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">รอตรวจสอบ</span>
+               <span v-else class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700">ตรวจสอบแล้ว</span>
+            </div>
+            
+            <div class="mb-2">
+               <span class="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-semibold mb-2">
+                  {{ suggestion.type === 'product' ? 'รีเควสสินค้า' : (suggestion.type === 'price' ? 'เสนอราคา' : 'ข้อเสนออื่นๆ') }}
+               </span>
+               <p class="text-slate-700 text-sm whitespace-pre-line">{{ suggestion.message }}</p>
+            </div>
+            
+            <div class="mt-auto pt-4 flex gap-2 justify-end border-t border-slate-200/60">
+               <button 
+                  v-if="suggestion.status === 'pending'" 
+                  @click="suggestionsStore.updateStatus(suggestion.id, 'reviewed')" 
+                  class="text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-md font-medium transition-colors"
+               >
+                  มาร์คว่าอ่านแล้ว
+               </button>
+               <button 
+                  @click="suggestionsStore.deleteSuggestion(suggestion.id)" 
+                  class="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-md font-medium transition-colors"
+               >
+                  ลบ
+               </button>
+            </div>
+         </div>
       </div>
     </div>
 
