@@ -48,5 +48,11 @@ service cloud.firestore {
     	allow read: if true;
       allow write: if isAdmin();
     }
+    
+    match /suggestions/{suggestion} {
+      // Admin can do anything. Users can create.
+      allow read, update, delete: if isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
   }
 }

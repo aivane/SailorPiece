@@ -414,7 +414,7 @@ const confirmImport = async () => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
       <div>
         <h1 class="text-3xl font-bold text-brand-dark flex items-center gap-2">
           <Settings class="w-8 h-8 text-brand" /> 
@@ -424,40 +424,40 @@ const confirmImport = async () => {
       </div>
 
       <!-- Tab Buttons -->
-      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100 w-full sm:w-auto">
+      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100 w-full xl:w-auto overflow-x-auto hide-scrollbar">
         <button 
           @click="activeTab = 'queue'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Users class="w-4 h-4" /> จัดการคิว
         </button>
         <button 
           @click="activeTab = 'history'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <History class="w-4 h-4" /> ประวัติ
         </button>
         <button 
           @click="activeTab = 'products'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Package class="w-4 h-4" /> จัดการสินค้า
         </button>
         <button 
           @click="activeTab = 'categories'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <Layers class="w-4 h-4" /> ตั้งค่าระบบ/หมวดหมู่
         </button>
         <button 
           @click="activeTab = 'users'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
         >
           <UserCog class="w-4 h-4" /> จัดการผู้ใช้
         </button>
         <button 
           @click="activeTab = 'suggestions'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none', activeTab === 'suggestions' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'suggestions' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
         >
           <MessageSquare class="w-4 h-4" /> ข้อเสนอแนะ
         </button>
