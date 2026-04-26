@@ -891,48 +891,60 @@ const confirmImport = async () => {
         </div>
       </div>
       
-      <div class="overflow-x-auto rounded-xl border border-slate-100">
-        <table class="w-full text-left text-sm whitespace-nowrap">
-          <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
-              <th class="px-4 py-3 font-medium">โปรไฟล์ / บัญชี</th>
-              <th class="px-4 py-3 font-medium">ชื่อในเกม (Roblox)</th>
-              <th class="px-4 py-3 font-medium">TikTok</th>
-              <th class="px-4 py-3 font-medium">ยอด Wallet</th>
-              <th class="px-4 py-3 font-medium text-right">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-slate-50/50 transition-colors">
-              <td class="px-4 py-3 flex items-center gap-3">
-                 <img v-if="u.photoURL" :src="u.photoURL" class="w-8 h-8 rounded-full border border-slate-200 object-cover" />
-                 <div v-else class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0"><UserCog class="w-4 h-4 text-slate-400" /></div>
-                 <div>
-                    <p class="font-medium text-slate-800">{{ u.displayName || 'ไม่มีชื่อโปรไฟล์' }}</p>
-                    <p class="text-xs text-slate-400 font-mono">{{ u.id.substring(0,8) }}...</p>
-                 </div>
-              </td>
-              <td class="px-4 py-3 text-slate-600">
-                <span v-if="u.robloxName" class="font-medium">{{ u.robloxName }}</span>
-                <span v-else class="text-slate-400 text-xs italic">ยังไม่กรอก</span>
-              </td>
-              <td class="px-4 py-3 text-slate-600">
-                <span v-if="u.tiktokName">{{ u.tiktokName }}</span>
-                <span v-else class="text-slate-400 text-xs italic">ยังไม่กรอก</span>
-              </td>
-              <td class="px-4 py-3">
-                 <span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{{ (u.virtualWallet || 0).toLocaleString() }} ฿</span>
-              </td>
-              <td class="px-4 py-3 text-right space-x-3">
-                <button @click="viewUserHistory(u.id)" class="text-blue-500 hover:text-blue-700 font-medium transition-colors text-xs bg-blue-50 px-2 py-1 rounded">ประวัติคิว</button>
-                <button @click="openAdjustModal(u.id)" class="text-emerald-600 hover:text-emerald-800 font-medium transition-colors text-xs bg-emerald-100 px-2 py-1 rounded shadow-sm outline outline-1 outline-emerald-200">ปรับยอดเงิน</button>
-              </td>
-            </tr>
-            <tr v-if="filteredUsers.length === 0">
-               <td colspan="5" class="px-4 py-8 text-center text-slate-500">เงียบเหงาเกินไป ไม่พบข้อมูลผู้ใช้เลย...</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="space-y-3">
+        <div v-for="u in filteredUsers" :key="u.id" class="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow gap-4 relative overflow-hidden">
+          
+          <!-- Left: Profile Info -->
+          <div class="flex items-center gap-4 flex-1 min-w-0">
+             <img v-if="u.photoURL" :src="u.photoURL" class="w-12 h-12 rounded-full border border-slate-200 object-cover shrink-0" />
+             <div v-else class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200"><UserCog class="w-6 h-6 text-slate-400" /></div>
+             <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                   <h3 class="font-bold text-slate-800 text-base truncate">{{ u.displayName || 'ไม่มีชื่อโปรไฟล์' }}</h3>
+                </div>
+                <p class="text-xs text-slate-400 font-mono mt-0.5">{{ u.id.substring(0,12) }}...</p>
+             </div>
+          </div>
+
+          <!-- Middle: Game Info & Wallet Wrapper -->
+          <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 shrink-0 w-full lg:w-auto mt-2 lg:mt-0">
+             <div class="flex items-center gap-4 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 flex-1 sm:flex-none w-full sm:w-auto">
+                <div class="flex flex-col flex-1 sm:flex-none min-w-0">
+                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">Roblox</label>
+                   <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate sm:w-28 xl:w-32">
+                     <span v-if="u.robloxName">{{ u.robloxName }}</span>
+                     <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
+                   </p>
+                </div>
+                <div class="flex flex-col flex-1 sm:flex-none min-w-0">
+                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">TikTok</label>
+                   <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate sm:w-24 xl:w-28">
+                     <span v-if="u.tiktokName">{{ u.tiktokName }}</span>
+                     <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
+                   </p>
+                </div>
+                <div class="flex flex-col items-center justify-center shrink-0 border-l border-slate-200 pl-4 ml-1">
+                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wallet</label>
+                   <span class="font-black text-emerald-600 text-lg">{{ (u.virtualWallet || 0).toLocaleString() }} ฿</span>
+                </div>
+             </div>
+
+             <!-- Right: Actions -->
+             <div class="flex items-center gap-2 shrink-0 justify-end flex-1 sm:flex-none border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-3 w-full sm:w-auto">
+                <button @click="viewUserHistory(u.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors font-medium text-sm">
+                   <History class="w-4 h-4"/> ประวัติ
+                </button>
+                <button @click="openAdjustModal(u.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm">
+                   <Wallet class="w-4 h-4"/> ปรับยอด
+                </button>
+             </div>
+          </div>
+        </div>
+
+        <div v-if="filteredUsers.length === 0" class="p-12 text-center bg-slate-50 rounded-xl border border-slate-100">
+           <UserCog class="w-12 h-12 text-slate-300 mx-auto mb-3" />
+           <p class="text-slate-500 font-medium">ไม่พบข้อมูลผู้ใช้ในระบบ</p>
+        </div>
       </div>
     </div>
 
