@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter, increment } from 'firebase/firestore';
 
 export const useShopStore = defineStore('shop', () => {
   const rawProducts = ref([]);

@@ -78,7 +78,7 @@ const isFeedbackOpen = ref(false)
     <button 
       v-if="user"
       @click="isFeedbackOpen = true"
-      class="fixed bottom-6 right-6 z-40 bg-brand hover:bg-brand-dark text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group flex items-center justify-center"
+      class="fixed bottom-6 left-6 z-40 bg-brand hover:bg-brand-dark text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group flex items-center justify-center"
       title="ส่งข้อเสนอแนะ"
     >
       <MessageSquarePlus class="w-6 h-6" />

@@ -201,7 +201,9 @@ const submitOrder = async () => {
     uiStore.showAlert('สั่งซื้อสำเร็จ! รอรับคิวได้เลย', 'success');
     router.push(`/queue/${queueRes.docId}`);
   } else {
-    uiStore.showAlert(queueRes?.message || 'เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ', 'error');
+    // โอนเงินคืนให้ลูกค้าอัตโนมัติหากสร้างคิวไม่สำเร็จ
+    await authStore.adjustWallet(user.value.uid, cartTotalBaht.value);
+    uiStore.showAlert(queueRes?.message || 'เกิดข้อผิดพลาดในการส่งคำสั่งซื้อ (ระบบได้คืนเงินเรียบร้อยแล้ว)', 'error');
   }
 };
 </script>
