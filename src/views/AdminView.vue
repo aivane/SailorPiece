@@ -892,52 +892,48 @@ const confirmImport = async () => {
       </div>
       
       <div class="space-y-3">
-        <div v-for="u in filteredUsers" :key="u.id" class="flex flex-col xl:flex-row xl:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow gap-4 relative overflow-hidden">
+        <div v-for="u in filteredUsers" :key="u.id" class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow relative overflow-hidden items-center">
           
           <!-- Left: Profile Info -->
-          <div class="flex items-center gap-4 flex-1 min-w-0 w-full xl:w-auto">
-             <img v-if="u.photoURL" :src="u.photoURL" class="w-12 h-12 min-w-[48px] rounded-full border border-slate-200 object-cover shrink-0" />
-             <div v-else class="w-12 h-12 min-w-[48px] rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200"><UserCog class="w-6 h-6 text-slate-400" /></div>
+          <div class="flex items-center gap-4 lg:col-span-4 min-w-0">
+             <img v-if="u.photoURL" :src="u.photoURL" class="w-12 h-12 rounded-full border border-slate-200 object-cover shrink-0" />
+             <div v-else class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200"><UserCog class="w-6 h-6 text-slate-400" /></div>
              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                   <h3 class="font-bold text-slate-800 text-base truncate">{{ u.displayName || 'ไม่มีชื่อโปรไฟล์' }}</h3>
-                </div>
-                <p class="text-xs text-slate-400 font-mono mt-0.5">{{ u.id.substring(0,12) }}...</p>
+                <h3 class="font-bold text-slate-800 text-base truncate">{{ u.displayName || 'ไม่มีชื่อโปรไฟล์' }}</h3>
+                <p class="text-xs text-slate-400 font-mono mt-0.5 truncate">{{ u.id }}</p>
              </div>
           </div>
 
-          <!-- Middle: Game Info & Wallet Wrapper -->
-          <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 shrink-0 w-full xl:w-auto mt-2 xl:mt-0">
-             <div class="flex items-center gap-4 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 flex-1 sm:flex-none w-full sm:w-auto">
-                <div class="flex flex-col flex-1 sm:flex-none min-w-0">
-                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">Roblox</label>
-                   <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate sm:w-28 xl:w-32">
-                     <span v-if="u.robloxName">{{ u.robloxName }}</span>
-                     <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
-                   </p>
-                </div>
-                <div class="flex flex-col flex-1 sm:flex-none min-w-0">
-                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">TikTok</label>
-                   <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate sm:w-24 xl:w-28">
-                     <span v-if="u.tiktokName">{{ u.tiktokName }}</span>
-                     <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
-                   </p>
-                </div>
-                <div class="flex flex-col items-center justify-center shrink-0 border-l border-slate-200 pl-4 ml-1">
-                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wallet</label>
-                   <span class="font-black text-emerald-600 text-lg">{{ (u.virtualWallet || 0).toLocaleString() }} ฿</span>
-                </div>
+          <!-- Middle: Game Info & Wallet -->
+          <div class="flex items-center gap-3 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 lg:col-span-5 min-w-0 w-full overflow-hidden">
+             <div class="flex flex-col flex-1 min-w-0">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">Roblox</label>
+                <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate w-full">
+                  <span v-if="u.robloxName">{{ u.robloxName }}</span>
+                  <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
+                </p>
              </div>
+             <div class="flex flex-col flex-1 min-w-0">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">TikTok</label>
+                <p class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium truncate w-full">
+                  <span v-if="u.tiktokName">{{ u.tiktokName }}</span>
+                  <span v-else class="text-slate-400 italic font-normal">ยังไม่กรอก</span>
+                </p>
+             </div>
+             <div class="flex flex-col items-center justify-center shrink-0 border-l border-slate-200 pl-3 ml-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wallet</label>
+                <span class="font-black text-emerald-600 text-lg whitespace-nowrap">{{ (u.virtualWallet || 0).toLocaleString() }} ฿</span>
+             </div>
+          </div>
 
-             <!-- Right: Actions -->
-             <div class="flex items-center gap-2 shrink-0 justify-end flex-1 sm:flex-none border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-3 w-full sm:w-auto">
-                <button @click="viewUserHistory(u.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors font-medium text-sm">
-                   <History class="w-4 h-4"/> ประวัติ
-                </button>
-                <button @click="openAdjustModal(u.id)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm">
-                   <Wallet class="w-4 h-4"/> ปรับยอด
-                </button>
-             </div>
+          <!-- Right: Actions -->
+          <div class="flex items-center gap-2 lg:col-span-3 justify-end border-t lg:border-t-0 border-slate-100 pt-3 lg:pt-0">
+             <button @click="viewUserHistory(u.id)" class="flex-1 lg:flex-none flex items-center justify-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors font-medium text-sm whitespace-nowrap">
+                <History class="w-4 h-4"/> ประวัติ
+             </button>
+             <button @click="openAdjustModal(u.id)" class="flex-1 lg:flex-none flex items-center justify-center gap-1 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm whitespace-nowrap">
+                <Wallet class="w-4 h-4"/> ปรับยอด
+             </button>
           </div>
         </div>
 
