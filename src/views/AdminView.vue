@@ -30,7 +30,7 @@ watch(activeTab, (val) => {
   if (val === 'suggestions' && suggestionsStore.suggestions.length === 0) {
     suggestionsStore.fetchSuggestions();
   }
-});
+}, { immediate: true });
 
 const allUsers = ref([]);
 let usersUnsubscribe = null;
