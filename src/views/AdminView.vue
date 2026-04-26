@@ -413,56 +413,59 @@ const confirmImport = async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-brand-dark flex items-center gap-2">
-          <Settings class="w-8 h-8 text-brand" /> 
-          Admin Dashboard
+  <div class="flex flex-col lg:flex-row gap-6 items-start">
+    <!-- Sidebar Navigation -->
+    <div class="w-full lg:w-64 flex-shrink-0 bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sticky top-24 z-10">
+      <div class="mb-6 px-2 hidden lg:block">
+        <h1 class="text-2xl font-bold text-brand-dark flex items-center gap-2">
+          <Settings class="w-6 h-6 text-brand" /> 
+          Admin
         </h1>
-        <p class="text-slate-500 mt-2">จัดการสินค้าและตรวจสอบสลิป</p>
+        <p class="text-slate-500 text-xs mt-1">Dashboard Management</p>
       </div>
 
-      <!-- Tab Buttons -->
-      <div class="flex bg-white rounded-xl shadow-sm p-1 border border-slate-100 w-full xl:w-auto overflow-x-auto hide-scrollbar">
+      <div class="flex flex-row lg:flex-col gap-1 overflow-x-auto hide-scrollbar pb-2 lg:pb-0">
         <button 
           @click="activeTab = 'queue'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'queue' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <Users class="w-4 h-4" /> จัดการคิว
+          <Users class="w-5 h-5" /> จัดการคิว
         </button>
         <button 
           @click="activeTab = 'history'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'history' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <History class="w-4 h-4" /> ประวัติ
+          <History class="w-5 h-5" /> ประวัติ
         </button>
         <button 
           @click="activeTab = 'products'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <Package class="w-4 h-4" /> จัดการสินค้า
+          <Package class="w-5 h-5" /> จัดการสินค้า
         </button>
         <button 
           @click="activeTab = 'categories'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'categories' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <Layers class="w-4 h-4" /> ตั้งค่าระบบ/หมวดหมู่
+          <Layers class="w-5 h-5" /> ตั้งค่าระบบ
         </button>
         <button 
           @click="activeTab = 'users'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'users' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <UserCog class="w-4 h-4" /> จัดการผู้ใช้
+          <UserCog class="w-5 h-5" /> จัดการผู้ใช้
         </button>
         <button 
           @click="activeTab = 'suggestions'"
-          :class="['px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors flex-1 sm:flex-none whitespace-nowrap shrink-0', activeTab === 'suggestions' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-700']"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'suggestions' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
-          <MessageSquare class="w-4 h-4" /> ข้อเสนอแนะ
+          <MessageSquare class="w-5 h-5" /> ข้อเสนอแนะ
         </button>
       </div>
     </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 w-full min-w-0 space-y-6">
 
     <!-- Queue Management Tab -->
     <div v-if="activeTab === 'queue'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -775,13 +778,13 @@ const confirmImport = async () => {
                 <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md">ฟิกราคา</span>
               </td>
               <td class="px-4 py-3 text-slate-600">
-                 <div class="flex items-center gap-1">
-                    <input type="number" v-model.number="p.price" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm outline-brand focus:border-brand" />
-                    <span class="text-xs text-slate-400">{{ p.pricingType === 'rate' ? 'ชิ้น/฿' : '฿/ชิ้น' }}</span>
+                 <div class="flex items-center gap-1.5">
+                    <input type="number" v-model.number="p.price" class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand/20 transition-all outline-none" />
+                    <span class="text-xs text-slate-400 font-medium">{{ p.pricingType === 'rate' ? 'ชิ้น/฿' : '฿/ชิ้น' }}</span>
                  </div>
               </td>
               <td class="px-4 py-3 text-slate-600">
-                <input type="number" v-model.number="p.quantity" class="w-20 border border-slate-300 rounded px-2 py-1 text-sm outline-brand focus:border-brand" />
+                <input type="number" v-model.number="p.quantity" class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand/20 transition-all outline-none" />
               </td>
               <td class="px-4 py-3 text-center">
                 <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
@@ -971,6 +974,7 @@ const confirmImport = async () => {
          </div>
       </div>
     </div>
+    </div> <!-- End Main Content Area -->
 
     <!-- Virtual Wallet Adjust Modal -->
     <div v-if="isAdjustModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
