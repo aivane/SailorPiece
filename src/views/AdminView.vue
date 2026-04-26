@@ -756,23 +756,23 @@ const confirmImport = async () => {
       </div>
 
       <div class="space-y-3">
-        <div v-for="p in filteredProducts" :key="p.id" class="flex flex-col xl:flex-row xl:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow gap-4 relative overflow-hidden group" :class="{'opacity-75 bg-slate-50/50': p.isActive === false}">
+        <div v-for="p in filteredProducts" :key="p.id" class="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow gap-4 relative overflow-hidden group" :class="{'opacity-75 bg-slate-50/50': p.isActive === false}">
           <!-- Draft Indicator -->
           <div v-if="p.isActive === false" class="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
           <div v-else class="absolute top-0 left-0 w-1 h-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
           <!-- Left: Info -->
-          <div class="flex items-center gap-4 flex-1">
-             <div v-if="p.image" class="w-14 h-14 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+          <div class="flex items-start lg:items-center gap-4 flex-1 min-w-0 w-full lg:w-auto">
+             <div v-if="p.image" class="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
                 <img :src="p.image" class="w-full h-full object-cover" />
              </div>
-             <div v-else class="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 border border-slate-200">
+             <div v-else class="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 border border-slate-200">
                 <Package class="w-6 h-6" />
              </div>
-             <div>
-                <div class="flex items-center gap-2">
-                   <h3 class="font-bold text-slate-800 text-base">{{ p.name }}</h3>
-                   <span v-if="p.badge && p.badge !== 'none'" class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{{ p.badge }}</span>
+             <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                   <h3 class="font-bold text-slate-800 text-base truncate">{{ p.name }}</h3>
+                   <span v-if="p.badge && p.badge !== 'none'" class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">{{ p.badge }}</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 mt-1">
                    <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs font-medium">{{ p.category || 'Reroll' }}</span>
@@ -783,42 +783,44 @@ const confirmImport = async () => {
              </div>
           </div>
 
-          <!-- Middle: Quick Edits (Price & Stock) -->
-          <div class="flex items-center gap-3 shrink-0 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 w-full xl:w-auto">
-             <div class="flex flex-col flex-1 xl:flex-none">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">{{ p.pricingType === 'rate' ? 'เรต (ชิ้น/฿)' : 'ราคา (฿/ชิ้น)' }}</label>
-                <div class="relative">
-                   <input type="number" v-model.number="p.price" class="w-full xl:w-28 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-brand-dark" />
+          <!-- Bottom / Right Section Wrapper for better wrapping -->
+          <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0 w-full lg:w-auto mt-2 lg:mt-0">
+             
+             <!-- Middle: Quick Edits (Price & Stock) -->
+             <div class="flex items-center gap-2 bg-slate-50/80 p-2 rounded-xl border border-slate-100 flex-1 sm:flex-none">
+                <div class="flex flex-col flex-1 sm:flex-none">
+                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">{{ p.pricingType === 'rate' ? 'เรต' : 'ราคา' }}</label>
+                   <input type="number" v-model.number="p.price" class="w-full sm:w-20 lg:w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-brand-dark" />
                 </div>
-             </div>
-             <div class="flex flex-col flex-1 xl:flex-none">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">สต๊อก</label>
-                <input type="number" v-model.number="p.quantity" :disabled="p.isRecipe" class="w-full xl:w-28 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-slate-700 disabled:opacity-50 disabled:bg-slate-50" />
-             </div>
-             <button @click="quickSave(p)" class="flex flex-col items-center justify-center shrink-0 w-10 h-10 mt-4 xl:w-12 xl:h-12 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors border border-emerald-100 hover:border-emerald-500 group xl:mt-0" title="เซฟตัวเลข">
-                <Save class="w-4 h-4 xl:w-5 xl:h-5 group-hover:scale-110 transition-transform" />
-             </button>
-          </div>
-
-          <!-- Right: Actions -->
-          <div class="flex items-center gap-2 shrink-0 justify-end w-full xl:w-auto pt-3 xl:pt-0 border-t border-slate-100 xl:border-0">
-             <div class="flex flex-col items-center justify-center border-r border-slate-200 pr-4 mr-2">
-                <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
-                   <input type="checkbox" :checked="p.isActive !== false" @change="toggleProductActive(p, $event.target.checked)" class="sr-only peer">
-                   <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                </label>
-                <span class="text-[10px] font-bold text-slate-400 mt-1 uppercase" :class="{'text-emerald-600': p.isActive !== false}">{{ p.isActive !== false ? 'เปิดขาย' : 'ซ่อน' }}</span>
+                <div class="flex flex-col flex-1 sm:flex-none">
+                   <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">สต๊อก</label>
+                   <input type="number" v-model.number="p.quantity" :disabled="p.isRecipe" class="w-full sm:w-20 lg:w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-slate-700 disabled:opacity-50 disabled:bg-slate-50" />
+                </div>
+                <button @click="quickSave(p)" class="flex flex-col items-center justify-center shrink-0 w-10 h-10 mt-5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors border border-emerald-100 hover:border-emerald-500 group" title="เซฟตัวเลข">
+                   <Save class="w-4 h-4 group-hover:scale-110 transition-transform" />
+                </button>
              </div>
 
-             <button @click="duplicateProduct(p)" class="flex items-center justify-center w-9 h-9 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group" title="คัดลอกสินค้า">
-                <Copy class="w-4 h-4 group-hover:scale-110 transition-transform" />
-             </button>
-             <button @click="openEditModal(p)" class="flex items-center justify-center w-9 h-9 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors group" title="แก้ไขแบบเต็ม">
-                <Edit3 class="w-4 h-4 group-hover:scale-110 transition-transform" />
-             </button>
-             <button @click="deleteProduct(p.id)" class="flex items-center justify-center w-9 h-9 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors group" title="ลบสินค้า">
-                <Trash2 class="w-4 h-4 group-hover:scale-110 transition-transform" />
-             </button>
+             <!-- Right: Actions -->
+             <div class="flex items-center gap-1.5 shrink-0 justify-end flex-1 sm:flex-none border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-3 w-full sm:w-auto">
+                <div class="flex flex-col items-center justify-center mr-1">
+                   <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
+                      <input type="checkbox" :checked="p.isActive !== false" @change="toggleProductActive(p, $event.target.checked)" class="sr-only peer">
+                      <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                   </label>
+                   <span class="text-[9px] font-bold text-slate-400 mt-1 uppercase" :class="{'text-emerald-600': p.isActive !== false}">{{ p.isActive !== false ? 'เปิด' : 'ซ่อน' }}</span>
+                </div>
+
+                <button @click="duplicateProduct(p)" class="flex items-center justify-center w-8 h-8 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group" title="คัดลอกสินค้า">
+                   <Copy class="w-4 h-4 group-hover:scale-110 transition-transform" />
+                </button>
+                <button @click="openEditModal(p)" class="flex items-center justify-center w-8 h-8 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors group" title="แก้ไขแบบเต็ม">
+                   <Edit3 class="w-4 h-4 group-hover:scale-110 transition-transform" />
+                </button>
+                <button @click="deleteProduct(p.id)" class="flex items-center justify-center w-8 h-8 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors group" title="ลบสินค้า">
+                   <Trash2 class="w-4 h-4 group-hover:scale-110 transition-transform" />
+                </button>
+             </div>
           </div>
         </div>
         
