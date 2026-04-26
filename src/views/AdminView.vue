@@ -18,10 +18,12 @@ const suggestionsStore = useSuggestionsStore();
 const { products, queues: currentQueues, categories, adminHistoryQueues, hasMoreAdminHistory, vipServerLink } = storeToRefs(shopStore);
 
 // Use 'users' tab instead of 'wallet'
-const activeTab = ref('queue');
+const activeTab = ref(localStorage.getItem('adminActiveTab') || 'queue');
 
 import { watch } from 'vue';
 watch(activeTab, (val) => {
+  localStorage.setItem('adminActiveTab', val);
+  
   if (val === 'history' && adminHistoryQueues.value.length === 0) {
     shopStore.loadAdminHistory(true);
   }
