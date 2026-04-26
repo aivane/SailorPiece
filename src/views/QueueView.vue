@@ -93,15 +93,17 @@ const queueDetails = computed(() => {
         </div>
       </div>
 
-      <!-- Queue Position (Mock) -->
+      <!-- Queue Number Display -->
       <div class="p-8 pb-12 flex flex-col justify-center items-center">
-         <p class="text-slate-500 font-medium mb-2">คิวปัจจุบันของคุณ</p>
+         <p class="text-slate-500 font-medium mb-2">หมายเลขคำสั่งซื้อของคุณ (ลำดับคิว)</p>
          <div class="flex items-end gap-3 justify-center">
             <span class="text-6xl font-black text-brand-dark tabular-nums tracking-tighter">
-               {{ queueDetails?.status === 'waiting' ? '#' + queueDetails?.position : '-' }}
+               #{{ queueDetails?.queueNumber || queueDetails?.id.substring(0,4) }}
             </span>
-            <span v-if="queueDetails?.status === 'waiting'" class="text-lg font-medium text-slate-400 mb-2">/ {{ queueDetails?.totalCount }} คิว</span>
          </div>
+         <p v-if="queueDetails?.status === 'waiting'" class="text-brand font-medium mt-4 bg-brand-light/30 border border-brand/20 px-4 py-1.5 rounded-full text-sm">
+            คิวที่รออยู่ก่อนหน้าคุณ: <span class="font-bold">{{ queueDetails?.position - 1 }}</span> คิว
+         </p>
       </div>
 
       <!-- Details -->

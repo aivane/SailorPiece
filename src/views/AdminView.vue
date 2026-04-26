@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database, MessageSquare } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database, MessageSquare, Save, Copy, Edit3, Trash2, Wrench } from 'lucide-vue-next';
 
 import { db } from '../firebase/config';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -755,57 +755,77 @@ const confirmImport = async () => {
         </div>
       </div>
 
-      <div class="overflow-x-auto rounded-xl border border-slate-100">
-        <table class="w-full text-left text-sm whitespace-nowrap">
-          <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-slate-500">
-              <th class="px-4 py-3 font-medium">สินค้า / หมวดหมู่</th>
-              <th class="px-4 py-3 font-medium">รูปแบบ</th>
-              <th class="px-4 py-3 font-medium">ราคา / เรต</th>
-              <th class="px-4 py-3 font-medium">สต๊อก</th>
-              <th class="px-4 py-3 font-medium text-center">แสดงหน้าร้าน</th>
-              <th class="px-4 py-3 font-medium text-right">แอคชั่น (บันทึกด่วน)</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="p in filteredProducts" :key="p.id" class="hover:bg-slate-50/50 transition-colors">
-              <td class="px-4 py-3">
-                 <p class="font-bold text-slate-800">{{ p.name }} <span v-if="p.badge && p.badge !== 'none'" class="ml-1 text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded">{{ p.badge }}</span></p>
-                 <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs">{{ p.category || 'Reroll' }}</span>
-              </td>
-              <td class="px-4 py-3 text-slate-500 text-xs">
-                <span v-if="p.pricingType === 'rate'" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">อิงเรต</span>
-                <span v-else class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md">ฟิกราคา</span>
-              </td>
-              <td class="px-4 py-3 text-slate-600">
-                 <div class="flex items-center gap-1.5">
-                    <input type="number" v-model.number="p.price" class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand/20 transition-all outline-none" />
-                    <span class="text-xs text-slate-400 font-medium">{{ p.pricingType === 'rate' ? 'ชิ้น/฿' : '฿/ชิ้น' }}</span>
-                 </div>
-              </td>
-              <td class="px-4 py-3 text-slate-600">
-                <input type="number" v-model.number="p.quantity" class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand/20 transition-all outline-none" />
-              </td>
-              <td class="px-4 py-3 text-center">
-                <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
-                  <input type="checkbox" :checked="p.isActive !== false" @change="toggleProductActive(p, $event.target.checked)" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                </label>
-              </td>
-              <td class="px-4 py-3 text-right space-x-2">
-                <button @click="quickSave(p)" class="text-white bg-emerald-500 hover:bg-emerald-600 shadow-sm px-2 py-1 rounded text-xs font-semibold inline-flex items-center gap-1 transition-colors"><Check class="w-3 h-3"/>เซฟเลข</button>
-                <button @click="duplicateProduct(p)" class="text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded text-xs font-medium transition-colors">คัดลอก</button>
-                <div class="inline-flex gap-2 ml-2 pl-2 border-l border-slate-200">
-                   <button @click="openEditModal(p)" class="text-blue-500 hover:text-blue-700 font-medium text-xs transition-colors">แก้ไขเต็ม</button>
-                   <button @click="deleteProduct(p.id)" class="text-red-500 hover:text-red-700 font-medium text-xs transition-colors">ลบ</button>
+      <div class="space-y-3">
+        <div v-for="p in filteredProducts" :key="p.id" class="flex flex-col xl:flex-row xl:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow gap-4 relative overflow-hidden group" :class="{'opacity-75 bg-slate-50/50': p.isActive === false}">
+          <!-- Draft Indicator -->
+          <div v-if="p.isActive === false" class="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
+          <div v-else class="absolute top-0 left-0 w-1 h-full bg-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+          <!-- Left: Info -->
+          <div class="flex items-center gap-4 flex-1">
+             <div v-if="p.image" class="w-14 h-14 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                <img :src="p.image" class="w-full h-full object-cover" />
+             </div>
+             <div v-else class="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 border border-slate-200">
+                <Package class="w-6 h-6" />
+             </div>
+             <div>
+                <div class="flex items-center gap-2">
+                   <h3 class="font-bold text-slate-800 text-base">{{ p.name }}</h3>
+                   <span v-if="p.badge && p.badge !== 'none'" class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{{ p.badge }}</span>
                 </div>
-              </td>
-            </tr>
-            <tr v-if="filteredProducts.length === 0">
-               <td colspan="5" class="px-4 py-8 text-center text-slate-500">ไม่พบสินค้าในหมวดหมู่นี้ หรือคำค้นหานี้</td>
-            </tr>
-          </tbody>
-        </table>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                   <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs font-medium">{{ p.category || 'Reroll' }}</span>
+                   <span v-if="p.pricingType === 'rate'" class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-medium">อิงเรต</span>
+                   <span v-else class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-xs font-medium">ฟิกราคา</span>
+                   <span v-if="p.isRecipe" class="text-xs text-amber-500 font-medium flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded"><Wrench class="w-3 h-3"/> คราฟท์</span>
+                </div>
+             </div>
+          </div>
+
+          <!-- Middle: Quick Edits (Price & Stock) -->
+          <div class="flex items-center gap-3 shrink-0 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100 w-full xl:w-auto">
+             <div class="flex flex-col flex-1 xl:flex-none">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">{{ p.pricingType === 'rate' ? 'เรต (ชิ้น/฿)' : 'ราคา (฿/ชิ้น)' }}</label>
+                <div class="relative">
+                   <input type="number" v-model.number="p.price" class="w-full xl:w-28 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-brand-dark" />
+                </div>
+             </div>
+             <div class="flex flex-col flex-1 xl:flex-none">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1 mb-1">สต๊อก</label>
+                <input type="number" v-model.number="p.quantity" :disabled="p.isRecipe" class="w-full xl:w-28 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-brand/20 outline-none transition-all font-bold text-slate-700 disabled:opacity-50 disabled:bg-slate-50" />
+             </div>
+             <button @click="quickSave(p)" class="flex flex-col items-center justify-center shrink-0 w-10 h-10 mt-4 xl:w-12 xl:h-12 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors border border-emerald-100 hover:border-emerald-500 group xl:mt-0" title="เซฟตัวเลข">
+                <Save class="w-4 h-4 xl:w-5 xl:h-5 group-hover:scale-110 transition-transform" />
+             </button>
+          </div>
+
+          <!-- Right: Actions -->
+          <div class="flex items-center gap-2 shrink-0 justify-end w-full xl:w-auto pt-3 xl:pt-0 border-t border-slate-100 xl:border-0">
+             <div class="flex flex-col items-center justify-center border-r border-slate-200 pr-4 mr-2">
+                <label class="relative inline-flex items-center cursor-pointer" title="เปิด/ปิด การแสดงผลหน้าร้าน">
+                   <input type="checkbox" :checked="p.isActive !== false" @change="toggleProductActive(p, $event.target.checked)" class="sr-only peer">
+                   <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+                <span class="text-[10px] font-bold text-slate-400 mt-1 uppercase" :class="{'text-emerald-600': p.isActive !== false}">{{ p.isActive !== false ? 'เปิดขาย' : 'ซ่อน' }}</span>
+             </div>
+
+             <button @click="duplicateProduct(p)" class="flex items-center justify-center w-9 h-9 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group" title="คัดลอกสินค้า">
+                <Copy class="w-4 h-4 group-hover:scale-110 transition-transform" />
+             </button>
+             <button @click="openEditModal(p)" class="flex items-center justify-center w-9 h-9 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors group" title="แก้ไขแบบเต็ม">
+                <Edit3 class="w-4 h-4 group-hover:scale-110 transition-transform" />
+             </button>
+             <button @click="deleteProduct(p.id)" class="flex items-center justify-center w-9 h-9 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors group" title="ลบสินค้า">
+                <Trash2 class="w-4 h-4 group-hover:scale-110 transition-transform" />
+             </button>
+          </div>
+        </div>
+        
+        <div v-if="filteredProducts.length === 0" class="p-12 text-center bg-slate-50 rounded-xl border border-slate-100">
+           <Package class="w-12 h-12 text-slate-300 mx-auto mb-3" />
+           <p class="text-slate-500 font-medium">ไม่พบสินค้าในหมวดหมู่นี้ หรือคำค้นหานี้</p>
+        </div>
       </div>
     </div>
 
