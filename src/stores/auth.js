@@ -105,7 +105,7 @@ export const useAuthStore = defineStore('auth', () => {
       await updateDoc(userRef, {
          virtualWallet: increment(amount)
       });
-      if (userProfile.value) {
+      if (userProfile.value && user.value && uid === user.value.uid) {
          userProfile.value.virtualWallet += amount;
       }
       return { success: true, message: 'ทำรายการสำเร็จ' };

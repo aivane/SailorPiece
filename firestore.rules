@@ -44,9 +44,10 @@ service cloud.firestore {
     }
     
     match /configs/{config} {
-    	// Used for categories
+    	// Used for categories and queue counter
     	allow read: if true;
       allow write: if isAdmin();
+      allow update: if isAuthenticated() && config == 'shop' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['globalQueueCounter']);
     }
     
     match /suggestions/{suggestion} {
