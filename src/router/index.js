@@ -30,8 +30,23 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+import { watch } from 'vue'
+
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  
+  // รอให้ Firebase ตรวจสอบสถานะการล็อกอินเสร็จก่อน
+  if (authStore.loading) {
+    await new Promise((resolve) => {
+      const unwatch = watch(() => authStore.loading, (isLoading) => {
+        if (!isLoading) {
+          unwatch()
+          resolve()
+        }
+      })
+    })
+  }
+
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next('/')
   } else {
