@@ -17,10 +17,15 @@ export const useAuctionStore = defineStore('auction', () => {
       (snapshot) => {
         auctions.value = snapshot.docs.map(docSnap => {
           const data = docSnap.data();
-          // Convert timestamp if needed
           let endsAtParsed = data.endsAt;
-          if (data.endsAt && typeof data.endsAt.toDate === 'function') {
-            endsAtParsed = data.endsAt.toDate().toISOString();
+          if (data.endsAt) {
+            if (typeof data.endsAt.toDate === 'function') {
+              endsAtParsed = data.endsAt.toDate().toISOString();
+            } else if (typeof data.endsAt === 'object' && 'seconds' in data.endsAt) {
+              endsAtParsed = new Date(data.endsAt.seconds * 1000).toISOString();
+            } else if (data.endsAt instanceof Date) {
+              endsAtParsed = data.endsAt.toISOString();
+            }
           }
           return {
             id: docSnap.id,

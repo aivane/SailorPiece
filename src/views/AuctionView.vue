@@ -74,7 +74,34 @@ const formatPrice = (price) => {
 
 // Calculate time remaining for an auction
 const getTimeRemaining = (endTimeStr) => {
-  const total = Date.parse(endTimeStr) - currentTime.value.getTime();
+  if (!endTimeStr) {
+    return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0, text: 'ไม่มีข้อมูลเวลา' };
+  }
+  
+  let endMs = 0;
+  if (typeof endTimeStr === 'object') {
+    if ('seconds' in endTimeStr) {
+      endMs = endTimeStr.seconds * 1000;
+    } else if (typeof endTimeStr.toDate === 'function') {
+      endMs = endTimeStr.toDate().getTime();
+    } else if (endTimeStr instanceof Date) {
+      endMs = endTimeStr.getTime();
+    }
+  } else {
+    endMs = Date.parse(endTimeStr);
+  }
+
+  if (isNaN(endMs) || endMs <= 0) {
+    // If it's a string but Date.parse failed, try normal Date instantiation
+    const dateObj = new Date(endTimeStr);
+    if (!isNaN(dateObj.getTime())) {
+      endMs = dateObj.getTime();
+    } else {
+      return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0, text: 'หมดเวลาแล้ว' };
+    }
+  }
+
+  const total = endMs - currentTime.value.getTime();
   if (total <= 0) {
     return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0, text: 'หมดเวลาแล้ว' };
   }

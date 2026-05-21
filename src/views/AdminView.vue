@@ -471,6 +471,19 @@ const saveAuction = async () => {
   }
 };
 
+const formatAuctionDate = (endsAt) => {
+  if (!endsAt) return '-';
+  if (endsAt && typeof endsAt === 'object' && 'seconds' in endsAt) {
+    return new Date(endsAt.seconds * 1000).toLocaleString('th-TH');
+  }
+  if (endsAt && typeof endsAt.toDate === 'function') {
+    return endsAt.toDate().toLocaleString('th-TH');
+  }
+  const dateObj = new Date(endsAt);
+  if (isNaN(dateObj.getTime())) return '-';
+  return dateObj.toLocaleString('th-TH');
+};
+
 const handleCancelAuction = async (id) => {
   if (await uiStore.showConfirm('คุณต้องการยกเลิกการประมูลนี้ใช่หรือไม่? ระบบจะทำการคืนเงินผู้ชนะปัจจุบันโดยอัตโนมัติ')) {
     const res = await auctionStore.cancelAuction(id);
@@ -1164,7 +1177,7 @@ const handleCompleteAuction = async (id) => {
                 <span v-else class="text-slate-400">-</span>
               </td>
               <td class="py-4 px-4 text-xs font-medium text-slate-600">
-                {{ auc.endsAt ? new Date(auc.endsAt.seconds * 1000).toLocaleString('th-TH') : '-' }}
+                {{ formatAuctionDate(auc.endsAt) }}
               </td>
               <td class="py-4 px-4">
                 <span 
