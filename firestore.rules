@@ -55,5 +55,17 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
     }
+    
+    match /auctions/{auctionId} {
+      // Anyone can read auctions and their bid histories
+      allow read: if true;
+      // Writing is locked down strictly to Admin (Express Backend uses Admin SDK, ensuring complete security)
+      allow write: if isAdmin();
+      
+      match /bids/{bidId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterView, RouterLink } from 'vue-router'
-import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList, Wallet, MessageSquarePlus } from 'lucide-vue-next'
+import { ShoppingBag, LayoutDashboard, Store, LogOut, ClipboardList, Wallet, MessageSquarePlus, Gavel } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { storeToRefs } from 'pinia'
 import GlobalUI from './components/GlobalUI.vue'
@@ -33,6 +33,10 @@ const isFeedbackOpen = ref(false)
             <RouterLink to="/queue" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
                <ClipboardList class="w-5 h-5 sm:w-4 sm:h-4" /> 
                <span class="hidden sm:inline">คิวของฉัน</span>
+            </RouterLink>
+            <RouterLink to="/auction" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
+               <Gavel class="w-5 h-5 sm:w-4 sm:h-4" /> 
+               <span class="hidden sm:inline">ประมูล</span>
             </RouterLink>
             <RouterLink v-if="isAdmin" to="/admin" class="text-slate-500 hover:text-brand-dark p-2 sm:px-3 sm:py-2 rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors">
               <LayoutDashboard class="w-5 h-5 sm:w-4 sm:h-4" /> 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database, MessageSquare, Save, Copy, Edit3, Trash2, Wrench } from 'lucide-vue-next';
+import { Package, Users, Settings, Tag, Plus, Check, X, History, Layers, Wallet, UserCog, Search, Database, MessageSquare, Save, Copy, Edit3, Trash2, Wrench, Gavel } from 'lucide-vue-next';
 
 import { db } from '../firebase/config';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -9,13 +9,16 @@ import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
 import { useUiStore } from '../stores/ui';
 import { useSuggestionsStore } from '../stores/suggestions';
+import { useAuctionStore } from '../stores/auction';
 import { storeToRefs } from 'pinia';
 
 const shopStore = useShopStore();
 const authStore = useAuthStore();
 const uiStore = useUiStore();
 const suggestionsStore = useSuggestionsStore();
+const auctionStore = useAuctionStore();
 const { products, queues: currentQueues, categories, adminHistoryQueues, hasMoreAdminHistory, vipServerLink } = storeToRefs(shopStore);
+const { auctions, activeAuctions, endedAuctions } = storeToRefs(auctionStore);
 
 // Use 'users' tab instead of 'wallet'
 const activeTab = ref(localStorage.getItem('adminActiveTab') || 'queue');
@@ -36,6 +39,7 @@ const allUsers = ref([]);
 let usersUnsubscribe = null;
 
 onMounted(() => {
+  auctionStore.initAuctions();
   usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
     allUsers.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
@@ -412,6 +416,75 @@ const confirmImport = async () => {
    }
 };
 
+// Auction states & methods
+const isAuctionModalOpen = ref(false);
+const auctionForm = ref({
+  title: '',
+  description: '',
+  startingPrice: 10,
+  minIncrement: 5,
+  endsAt: ''
+});
+const auctionImageRawFile = ref(null);
+const isSubmittingAuction = ref(false);
+
+const openAddAuctionModal = () => {
+  auctionForm.value = {
+    title: '',
+    description: '',
+    startingPrice: 10,
+    minIncrement: 5,
+    endsAt: ''
+  };
+  auctionImageRawFile.value = null;
+  isAuctionModalOpen.value = true;
+};
+
+const handleAuctionImageUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    auctionImageRawFile.value = file;
+  }
+};
+
+const saveAuction = async () => {
+  if (!auctionForm.value.title || !auctionForm.value.startingPrice || !auctionForm.value.endsAt) {
+    uiStore.showAlert('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'warning');
+    return;
+  }
+  isSubmittingAuction.value = true;
+  const res = await auctionStore.createAuction(auctionForm.value, auctionImageRawFile.value);
+  isSubmittingAuction.value = false;
+  if (res.success) {
+    uiStore.showAlert('สร้างรายการประมูลสำเร็จ', 'success');
+    isAuctionModalOpen.value = false;
+  } else {
+    uiStore.showAlert(res.message || 'สร้างไม่สำเร็จ', 'error');
+  }
+};
+
+const handleCancelAuction = async (id) => {
+  if (await uiStore.showConfirm('คุณต้องการยกเลิกการประมูลนี้ใช่หรือไม่? ระบบจะทำการคืนเงินผู้ชนะปัจจุบันโดยอัตโนมัติ')) {
+    const res = await auctionStore.cancelAuction(id);
+    if (res.success) {
+      uiStore.showAlert('ยกเลิกรายการประมูลสำเร็จ', 'success');
+    } else {
+      uiStore.showAlert(res.message || 'ยกเลิกไม่สำเร็จ', 'error');
+    }
+  }
+};
+
+const handleCompleteAuction = async (id) => {
+  if (await uiStore.showConfirm('คุณต้องการเสร็จสิ้นการประมูลนี้และสร้างคิวรับสินค้าใช่หรือไม่?')) {
+    const res = await auctionStore.completeAuction(id);
+    if (res.success) {
+      uiStore.showAlert('เสร็จสิ้นและส่งเข้าคิวรับสินค้าเรียบร้อย', 'success');
+    } else {
+      uiStore.showAlert(res.message || 'ดำเนินการไม่สำเร็จ', 'error');
+    }
+  }
+};
+
 </script>
 
 <template>
@@ -444,6 +517,12 @@ const confirmImport = async () => {
           :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'products' ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
         >
           <Package class="w-5 h-5" /> จัดการสินค้า
+        </button>
+        <button 
+          @click="activeTab = 'auctions'"
+          :class="['px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-colors flex-1 lg:flex-none whitespace-nowrap shrink-0', activeTab === 'auctions' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
+        >
+          <Gavel class="w-5 h-5" /> จัดการประมูล
         </button>
         <button 
           @click="activeTab = 'categories'"
@@ -1022,6 +1101,124 @@ const confirmImport = async () => {
          </div>
       </div>
     </div>
+
+    <!-- Auctions Management Tab -->
+    <div v-if="activeTab === 'auctions'" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-slate-100">
+        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+          <Gavel class="w-6 h-6 text-amber-500" />
+          ระบบจัดการประมูลสินค้า (Auctions)
+        </h2>
+        <button 
+          @click="openAddAuctionModal" 
+          class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+        >
+          <Plus class="w-4 h-4" /> สร้างรายการประมูลใหม่
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-100 text-slate-500 text-sm font-medium">
+              <th class="pb-3 pr-4">สินค้า</th>
+              <th class="pb-3 px-4">ราคาตั้งต้น</th>
+              <th class="pb-3 px-4">ราคาปัจจุบัน</th>
+              <th class="pb-3 px-4">ผู้ประมูลสูงสุด</th>
+              <th class="pb-3 px-4">เวลาสิ้นสุด</th>
+              <th class="pb-3 px-4">สถานะ</th>
+              <th class="pb-3 pl-4 text-right">ดำเนินการ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-sm">
+            <tr v-for="auc in auctions" :key="auc.id" class="hover:bg-slate-50/50 transition-colors">
+              <td class="py-4 pr-4 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0">
+                  <img v-if="auc.image" :src="auc.image" class="w-full h-full object-cover" />
+                  <div v-else class="w-full h-full flex items-center justify-center text-slate-400">
+                    <Gavel class="w-5 h-5" />
+                  </div>
+                </div>
+                <div>
+                  <p class="font-bold text-slate-800">{{ auc.title }}</p>
+                  <p class="text-xs text-slate-500 line-clamp-1 max-w-xs">{{ auc.description || 'ไม่มีคำอธิบาย' }}</p>
+                </div>
+              </td>
+              <td class="py-4 px-4 font-medium text-slate-600">{{ auc.startingPrice }} ฿</td>
+              <td class="py-4 px-4 font-bold text-slate-800">
+                <span class="text-amber-600">{{ auc.currentBid }} ฿</span>
+              </td>
+              <td class="py-4 px-4 text-xs font-mono text-slate-500">
+                <div v-if="auc.currentBidderName">
+                  <p class="font-bold text-slate-700">{{ auc.currentBidderName }}</p>
+                  <p class="text-[10px] text-slate-400">UID: {{ auc.currentBidderUid }}</p>
+                </div>
+                <span v-else class="text-slate-400">-</span>
+              </td>
+              <td class="py-4 px-4 text-xs font-medium text-slate-600">
+                {{ auc.endsAt ? new Date(auc.endsAt.seconds * 1000).toLocaleString('th-TH') : '-' }}
+              </td>
+              <td class="py-4 px-4">
+                <span 
+                  v-if="auc.status === 'active'" 
+                  class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center gap-1 w-max"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  กำลังประมูล
+                </span>
+                <span 
+                  v-else-if="auc.status === 'ended'" 
+                  class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-200 w-max block"
+                >
+                  หมดเวลาประมูล
+                </span>
+                <span 
+                  v-else-if="auc.status === 'completed'" 
+                  class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200 w-max block"
+                >
+                  ส่งมอบแล้ว
+                </span>
+                <span 
+                  v-else-if="auc.status === 'cancelled'" 
+                  class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 w-max block"
+                >
+                  ยกเลิกแล้ว
+                </span>
+              </td>
+              <td class="py-4 pl-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <!-- Cancel Active Auction -->
+                  <button 
+                    v-if="auc.status === 'active'" 
+                    @click="handleCancelAuction(auc.id)" 
+                    class="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg font-bold transition-all border border-red-100"
+                  >
+                    ยกเลิกการประมูล
+                  </button>
+
+                  <!-- Complete Auction to Queue -->
+                  <button 
+                    v-if="auc.status === 'ended' && auc.currentBidderUid" 
+                    @click="handleCompleteAuction(auc.id)" 
+                    class="text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-bold transition-all border border-emerald-100 flex items-center gap-1"
+                  >
+                    <Check class="w-3 h-3" /> ส่งของเข้าคิว
+                  </button>
+                  <span v-else-if="auc.status === 'ended'" class="text-xs text-slate-400 italic">ไม่มีผู้ประมูล</span>
+                  <span v-else-if="auc.status === 'completed'" class="text-xs text-slate-500 font-bold">สร้างคิวแล้ว</span>
+                  <span v-else-if="auc.status === 'cancelled'" class="text-xs text-slate-400 italic">ยกเลิกแล้ว</span>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="auctions.length === 0">
+              <td colspan="7" class="text-center py-8 text-slate-400">
+                ยังไม่มีรายการประมูลสินค้า
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
     </div> <!-- End Main Content Area -->
 
     <!-- Virtual Wallet Adjust Modal -->
@@ -1246,6 +1443,69 @@ const confirmImport = async () => {
           
           <button v-else @click="confirmImport" :disabled="isImporting" class="px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 font-bold">
              {{ isImporting ? 'กำลังซิงค์...' : 'ยืนยันการนำเข้าสต๊อก' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Auction Modal -->
+    <div v-if="isAuctionModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isAuctionModalOpen = false"></div>
+      <div class="bg-white rounded-2xl w-full max-w-lg relative z-10 overflow-hidden shadow-2xl flex flex-col">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+          <h2 class="text-lg font-semibold text-amber-800 flex items-center gap-2">
+            <Gavel class="w-5 h-5 text-amber-500" /> สร้างรายการประมูลใหม่
+          </h2>
+          <button @click="isAuctionModalOpen = false" class="text-amber-700 hover:text-amber-900 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">หัวข้อการประมูล *</label>
+            <input v-model="auctionForm.title" type="text" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all" placeholder="เช่น ดาบสุดแรร์บวกพัน" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">รายละเอียดสินค้า</label>
+            <textarea v-model="auctionForm.description" rows="3" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all" placeholder="อธิบายรายละเอียดสินค้า ความแรง หรือเงื่อนไขเพิ่มเติม..."></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">ราคาเริ่มต้น * (฿)</label>
+              <input v-model.number="auctionForm.startingPrice" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">ขั้นต่ำในการเคาะ * (฿)</label>
+              <input v-model.number="auctionForm.minIncrement" type="number" min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">เวลาสิ้นสุดการประมูล *</label>
+            <input v-model="auctionForm.endsAt" type="datetime-local" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all" />
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-slate-700">รูปภาพสินค้าการประมูล</label>
+            <div class="flex items-center gap-4">
+              <div v-if="auctionImageRawFile" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                <img :src="URL.createObjectURL(auctionImageRawFile)" class="w-full h-full object-cover" />
+              </div>
+              <div class="flex-grow">
+                <input type="file" accept="image/*" @change="handleAuctionImageUpload" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 transition-colors cursor-pointer outline-none" />
+                <p class="text-xs text-slate-400 mt-1">อัปโหลดรูปภาพสินค้าเพื่อดึงดูดผู้ประมูล</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button @click="isAuctionModalOpen = false" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">ยกเลิก</button>
+          <button @click="saveAuction" :disabled="isSubmittingAuction" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all disabled:opacity-50">
+            {{ isSubmittingAuction ? 'กำลังบันทึก...' : 'สร้างรายการประมูล' }}
           </button>
         </div>
       </div>

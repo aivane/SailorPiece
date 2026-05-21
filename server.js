@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import verifySlipHandler from './api/verify-slip.js';
+import placeBidHandler from './api/place-bid.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,9 @@ app.use(express.json({ limit: '10mb' }));
 
 // Route for verifying slip
 app.post('/api/verify-slip', verifySlipHandler);
+
+// Route for placing a bid securely
+app.post('/api/place-bid', placeBidHandler);
 
 // Serve static assets from Vite's built client
 app.use(express.static(path.join(__dirname, 'dist')));
