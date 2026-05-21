@@ -1,0 +1,14 @@
+services:
+  sailorpiece:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sailorpiece-app
+    # Map port 3000 inside the container to port 3000 on the VM host.
+    # You can change the first "3000" to "80" or another port if needed.
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    # Loads production environment variables from .env.production
+    env_file:
+      - .env.production
