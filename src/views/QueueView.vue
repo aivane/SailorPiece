@@ -1,10 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Clock, CheckCircle2, AlertCircle, History } from 'lucide-vue-next';
 import { useShopStore } from '../stores/shop';
 import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const route = useRoute();
 const shopStore = useShopStore();
@@ -37,13 +39,46 @@ const activeQueueId = computed(() => {
   return null;
 });
 
+const liveQueueDoc = ref(null);
+let queueDocUnsubscribe = null;
+
+// Direct live listener to the specific active queue document
+watch(activeQueueId, (newId) => {
+  if (queueDocUnsubscribe) {
+    queueDocUnsubscribe();
+    queueDocUnsubscribe = null;
+  }
+  
+  if (newId) {
+    queueDocUnsubscribe = onSnapshot(doc(db, 'queues', newId), 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          liveQueueDoc.value = { id: docSnap.id, ...docSnap.data() };
+        } else {
+          liveQueueDoc.value = null;
+        }
+      },
+      (error) => {
+        console.warn("Error listening to active queue doc:", error);
+      }
+    );
+  } else {
+    liveQueueDoc.value = null;
+  }
+}, { immediate: true });
+
+onUnmounted(() => {
+  if (queueDocUnsubscribe) {
+    queueDocUnsubscribe();
+  }
+});
+
 const queueDetails = computed(() => {
-  if (!activeQueueId.value) return null;
-  const q = queues.value.find(item => item.id === activeQueueId.value);
-  if (!q) return null;
+  if (!liveQueueDoc.value) return null;
+  const q = liveQueueDoc.value;
 
   const waitingQs = queues.value.filter(item => item.status === 'waiting');
-  const positionIndex = waitingQs.findIndex(item => item.id === activeQueueId.value);
+  const positionIndex = waitingQs.findIndex(item => item.id === q.id);
   
   return {
     ...q,
@@ -53,13 +88,21 @@ const queueDetails = computed(() => {
     submittedAt: q.time
   };
 });
+
+// Calculate the queue number currently being served (the head of the FIFO queue)
+const currentServingQueueNumber = computed(() => {
+  if (queues.value.length > 0) {
+    return queues.value[0].queueNumber;
+  }
+  return null;
+});
 </script>
 
 <template>
   <div class="max-w-2xl mx-auto space-y-6 flex flex-col items-center">
     <div class="text-center w-full">
       <h1 class="text-3xl font-bold text-brand-dark">เช็คคิวของคุณ</h1>
-      <p class="text-slate-500 mt-2">ติดตามสถานะคำสั่งซื้อและการตรวจสอบสลิป</p>
+      <p class="text-slate-500 mt-2">ติดตามสถานะคำสั่งซื้อและการตรวจสอบสลิปแบบเรียลไทม์</p>
     </div>
 
     <!-- No Queue ID Case -->
@@ -83,32 +126,62 @@ const queueDetails = computed(() => {
       }">
         <div v-if="queueDetails?.status === 'waiting'" class="flex flex-col items-center">
           <Clock class="w-16 h-16 text-amber-500 mb-4 animate-pulse" />
-          <h2 class="text-xl font-bold text-amber-700">กำลังตรวจสอบสลิป</h2>
-          <p class="text-amber-600/80 mt-1">โปรดรอการยืนยันจาก Admin</p>
+          <h2 class="text-xl font-bold text-amber-700">กำลังตรวจสอบสลิปและคิวจัดส่ง</h2>
+          <p class="text-amber-600/80 mt-1">โปรดรอการส่งมอบและยืนยันจาก Admin</p>
         </div>
         <div v-else-if="queueDetails?.status === 'approved'" class="flex flex-col items-center">
           <CheckCircle2 class="w-16 h-16 text-green-500 mb-4" />
-          <h2 class="text-xl font-bold text-green-700">ชำระเงินสำเร็จ</h2>
-          <p class="text-green-600/80 mt-1">สินค้าพร้อมจัดส่งตามคิว</p>
+          <h2 class="text-xl font-bold text-green-700">ชำระเงินและจัดส่งสินค้าสำเร็จ</h2>
+          <p class="text-green-600/80 mt-1">ทำรายการเสร็จสิ้นเรียบร้อยแล้ว ขอบคุณที่ใช้บริการครับ</p>
         </div>
       </div>
 
-      <!-- Queue Number Display -->
-      <div class="p-8 pb-12 flex flex-col justify-center items-center">
-         <p class="text-slate-500 font-medium mb-2">หมายเลขคำสั่งซื้อของคุณ (ลำดับคิว)</p>
-         <div class="flex items-end gap-3 justify-center">
-            <span class="text-6xl font-black text-brand-dark tabular-nums tracking-tighter">
-               #{{ queueDetails?.queueNumber || queueDetails?.id.substring(0,4) }}
+      <!-- Queue Number Display (Dashboard Mode) -->
+      <div class="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/40">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <!-- Card 1: Your Queue -->
+          <div class="bg-white p-5 rounded-2xl border border-brand/20 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-brand text-white px-3 py-0.5 rounded-bl-lg text-[10px] font-semibold">
+              คิวของคุณ
+            </div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Your Ticket</p>
+            <span class="text-5xl font-black text-brand-dark tabular-nums tracking-tight">
+               #{{ queueDetails?.queueNumber || '-' }}
             </span>
-         </div>
-         <p v-if="queueDetails?.status === 'waiting'" class="text-brand font-medium mt-4 bg-brand-light/30 border border-brand/20 px-4 py-1.5 rounded-full text-sm">
-            คิวที่รออยู่ก่อนหน้าคุณ: <span class="font-bold">{{ queueDetails?.position - 1 }}</span> คิว
-         </p>
+            <p class="text-xs text-slate-400 mt-1.5">หมายเลขคิวอ้างอิงหลัก</p>
+          </div>
+
+          <!-- Card 2: Now Serving -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-slate-800 text-white px-3 py-0.5 rounded-bl-lg text-[10px] font-semibold flex items-center gap-1">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+              คิวที่กำลังบริการ
+            </div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Now Serving</p>
+            <span class="text-5xl font-black text-slate-700 tabular-nums tracking-tight">
+               #{{ currentServingQueueNumber || 'ไม่มีคิวรอ' }}
+            </span>
+            <p class="text-xs text-slate-400 mt-1.5">แอดมินกำลังดำเนินการคิวนี้</p>
+          </div>
+        </div>
+
+        <!-- Waiting Status Indicator & Progress Timeline -->
+        <div v-if="queueDetails?.status === 'waiting'" class="mt-6 flex flex-col items-center text-center space-y-3">
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-brand h-full rounded-full transition-all duration-500" :style="{ width: `${Math.max(8, 100 - ((queueDetails?.position - 1) * 15))}%` }"></div>
+          </div>
+          
+          <p class="text-slate-600 text-sm font-medium">
+            คิวที่รออยู่ก่อนหน้าคุณ: 
+            <span class="text-brand font-extrabold text-base bg-brand-light/40 px-2.5 py-0.5 rounded-lg border border-brand/10 inline-block align-middle ml-1">
+              {{ queueDetails?.position - 1 }}
+            </span> คิว
+          </p>
+        </div>
       </div>
 
       <!-- Details -->
-      <div class="bg-slate-50 p-6 space-y-3 text-sm rounded-b-2xl">
-        
+      <div class="bg-slate-50/50 p-6 space-y-3 text-sm rounded-b-2xl">
         <div class="space-y-2 pb-3 border-b border-slate-200/60 font-medium">
            <p class="text-slate-500 font-normal mb-2">รายการสินค้าที่สั่ง:</p>
            <template v-if="queueDetails?.items && queueDetails.items.length > 0">
@@ -131,11 +204,11 @@ const queueDetails = computed(() => {
         </div>
 
         <div class="flex justify-between items-center pt-1">
-          <span class="text-slate-500">หมายเลขคิว (สแกนอ้างอิง):</span>
-          <span class="font-bold text-slate-400 font-mono text-xs">#{{ queueDetails?.queueNumber || queueDetails?.id }}</span>
+          <span class="text-slate-500">รหัสเอกสารอ้างอิง:</span>
+          <span class="font-bold text-slate-400 font-mono text-xs">{{ queueDetails?.id }}</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-slate-500">เวลาที่ส่งคำสั่งซื้อ:</span>
+          <span class="text-slate-500">เวลาที่เข้าคิว:</span>
           <span class="font-medium text-slate-800">{{ queueDetails?.submittedAt }}</span>
         </div>
 
