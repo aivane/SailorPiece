@@ -13,26 +13,31 @@ export const useAuctionStore = defineStore('auction', () => {
 
   const initAuctions = () => {
     // Listen to ALL auctions to show both active and ended
-    onSnapshot(collection(db, 'auctions'), (snapshot) => {
-      auctions.value = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        // Convert timestamp if needed
-        let endsAtParsed = data.endsAt;
-        if (data.endsAt && typeof data.endsAt.toDate === 'function') {
-          endsAtParsed = data.endsAt.toDate().toISOString();
-        }
-        return {
-          id: docSnap.id,
-          ...data,
-          endsAt: endsAtParsed
-        };
-      }).sort((a, b) => {
-        // Sort active auctions first, then by endsAt descending
-        if (a.status === 'active' && b.status !== 'active') return -1;
-        if (a.status !== 'active' && b.status === 'active') return 1;
-        return new Date(b.endsAt) - new Date(a.endsAt);
-      });
-    });
+    onSnapshot(collection(db, 'auctions'), 
+      (snapshot) => {
+        auctions.value = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          // Convert timestamp if needed
+          let endsAtParsed = data.endsAt;
+          if (data.endsAt && typeof data.endsAt.toDate === 'function') {
+            endsAtParsed = data.endsAt.toDate().toISOString();
+          }
+          return {
+            id: docSnap.id,
+            ...data,
+            endsAt: endsAtParsed
+          };
+        }).sort((a, b) => {
+          // Sort active auctions first, then by endsAt descending
+          if (a.status === 'active' && b.status !== 'active') return -1;
+          if (a.status !== 'active' && b.status === 'active') return 1;
+          return new Date(b.endsAt) - new Date(a.endsAt);
+        });
+      },
+      (error) => {
+        console.warn("Firestore auctions listener error:", error);
+      }
+    );
   };
 
   const placeBid = async (auctionId, bidAmount, robloxName) => {

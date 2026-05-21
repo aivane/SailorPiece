@@ -50,9 +50,14 @@ watch(selectedAuction, (newAuction) => {
   if (newAuction) {
     robloxName.value = userProfile.value?.robloxName || '';
     const bidsQuery = query(collection(db, 'auctions', newAuction.id, 'bids'), orderBy('timestamp', 'desc'));
-    bidsUnsubscribe = onSnapshot(bidsQuery, (snapshot) => {
-      activeBids.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    });
+    bidsUnsubscribe = onSnapshot(bidsQuery, 
+      (snapshot) => {
+        activeBids.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+      (error) => {
+        console.warn("Firestore bids listener error:", error);
+      }
+    );
     // Set default custom bid
     const currentBid = newAuction.currentBid || 0;
     const minIncrement = newAuction.minIncrement || 0;

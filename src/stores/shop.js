@@ -58,35 +58,50 @@ export const useShopStore = defineStore('shop', () => {
 
   const initShop = () => {
     // Listen to products
-    onSnapshot(collection(db, 'products'), (snapshot) => {
-      rawProducts.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-    });
+    onSnapshot(collection(db, 'products'), 
+      (snapshot) => {
+        rawProducts.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      },
+      (error) => {
+        console.warn("Firestore products listener error:", error);
+      }
+    );
     
     // Listen to ACTIVE queues only
     const activeQuery = query(collection(db, 'queues'), where('status', '==', 'waiting'));
-    onSnapshot(activeQuery, (snapshot) => {
-      queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => {
-         const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
-         const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
-         return timeA - timeB; // FIFO: oldest first
-      });
-    });
+    onSnapshot(activeQuery, 
+      (snapshot) => {
+        queues.value = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })).sort((a,b) => {
+           const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
+           const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
+           return timeA - timeB; // FIFO: oldest first
+        });
+      },
+      (error) => {
+        console.warn("Firestore queues listener error:", error);
+      }
+    );
 
     // Listen to categories and config
-    onSnapshot(doc(db, 'configs', 'shop'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.categories) categories.value = data.categories;
-        if (data.vipServerLink) vipServerLink.value = data.vipServerLink;
-      } else {
-        // Initialize if not exists
-        setDoc(doc(db, 'configs', 'shop'), { 
-           categories: categories.value, 
-           vipServerLink: vipServerLink.value,
-           globalQueueCounter: 0
-        }, { merge: true });
+    onSnapshot(doc(db, 'configs', 'shop'), 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.categories) categories.value = data.categories;
+          if (data.vipServerLink) vipServerLink.value = data.vipServerLink;
+        } else {
+          // Initialize if not exists
+          setDoc(doc(db, 'configs', 'shop'), { 
+             categories: categories.value, 
+             vipServerLink: vipServerLink.value,
+             globalQueueCounter: 0
+          }, { merge: true });
+        }
+      },
+      (error) => {
+        console.warn("Firestore config listener error:", error);
       }
-    });
+    );
   };
 
   const updateConfig = async (newConfig) => {
