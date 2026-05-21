@@ -40,9 +40,14 @@ let usersUnsubscribe = null;
 
 onMounted(() => {
   auctionStore.initAuctions();
-  usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-    allUsers.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  });
+  usersUnsubscribe = onSnapshot(collection(db, 'users'), 
+    (snapshot) => {
+      allUsers.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+    (error) => {
+      console.warn("Firestore users listener error:", error);
+    }
+  );
 });
 
 onUnmounted(() => {
@@ -426,6 +431,7 @@ const auctionForm = ref({
   endsAt: ''
 });
 const auctionImageRawFile = ref(null);
+const auctionImagePreview = ref('');
 const isSubmittingAuction = ref(false);
 
 const openAddAuctionModal = () => {
@@ -437,6 +443,7 @@ const openAddAuctionModal = () => {
     endsAt: ''
   };
   auctionImageRawFile.value = null;
+  auctionImagePreview.value = '';
   isAuctionModalOpen.value = true;
 };
 
@@ -444,6 +451,7 @@ const handleAuctionImageUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
     auctionImageRawFile.value = file;
+    auctionImagePreview.value = URL.createObjectURL(file);
   }
 };
 
@@ -1491,8 +1499,8 @@ const handleCompleteAuction = async (id) => {
           <div class="space-y-2">
             <label class="block text-sm font-medium text-slate-700">รูปภาพสินค้าการประมูล</label>
             <div class="flex items-center gap-4">
-              <div v-if="auctionImageRawFile" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
-                <img :src="URL.createObjectURL(auctionImageRawFile)" class="w-full h-full object-cover" />
+              <div v-if="auctionImagePreview" class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                <img :src="auctionImagePreview" class="w-full h-full object-cover" />
               </div>
               <div class="flex-grow">
                 <input type="file" accept="image/*" @change="handleAuctionImageUpload" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 transition-colors cursor-pointer outline-none" />
