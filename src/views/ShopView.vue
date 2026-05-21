@@ -198,6 +198,7 @@ const submitOrder = async () => {
   isSubmitting.value = false;
   closeCartModal();
   if (queueRes && queueRes.success) {
+    shopStore.clearCart(); // ล้างรถเข็นเมื่อสั่งซื้อสำเร็จ
     uiStore.showAlert('สั่งซื้อสำเร็จ! รอรับคิวได้เลย', 'success');
     router.push(`/queue/${queueRes.docId}`);
   } else {

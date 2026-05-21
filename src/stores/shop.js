@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { db } from '../firebase/config';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, where, orderBy, getDocs, limit, startAfter, increment } from 'firebase/firestore';
 
@@ -26,7 +26,26 @@ export const useShopStore = defineStore('shop', () => {
   });
 
   const queues = ref([]);
-  const cart = ref([]);
+
+  // Initialize cart from localStorage immediately to avoid reactive mutation triggering watchers on load
+  const cart = ref((() => {
+    try {
+      const savedCart = localStorage.getItem('sailorpiece_cart');
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (e) {
+      console.warn('Failed to load cart from localStorage:', e);
+      return [];
+    }
+  })());
+
+  // Watch cart deeply and save changes to localStorage
+  watch(cart, (newCart) => {
+    try {
+      localStorage.setItem('sailorpiece_cart', JSON.stringify(newCart));
+    } catch (e) {
+      console.warn('Failed to save cart to localStorage:', e);
+    }
+  }, { deep: true });
   const categories = ref(['Reroll', 'Melee', 'Sword', 'Chest', 'Summon', 'Other']);
   const vipServerLink = ref('https://www.roblox.com/share?code=4e552f5d09d18248bb956740e7470d08&type=Server');
 
